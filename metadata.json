@@ -1,0 +1,5 @@
+{
+  "name": "WebAds Analytics",
+  "description": "Um painel de indicadores de campanhas de mídia com IA integrada para sugerir insights e otimizações, construído com React e Tailwind CSS.",
+  "requestFramePermissions": []
+}

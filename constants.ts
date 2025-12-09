@@ -1,0 +1,1 @@
+// Constants file - Mock data removed. All data should be fetched from Supabase or APIs.
