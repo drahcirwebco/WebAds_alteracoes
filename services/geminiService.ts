@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Campaign } from '../types';
-import { SUPABASE_URL_META, SUPABASE_ANON_KEY_META } from './supabaseClient';
+import { SUPABASE_URL_META, SUPABASE_ANON_KEY_META, SUPABASE_URL_GOOGLE, SUPABASE_ANON_KEY_GOOGLE } from './supabaseClient';
 
 
 export const fetchCampaignDetails = async (): Promise<Campaign[]> => {
@@ -65,40 +65,82 @@ export const fetchCampaignDetails = async (): Promise<Campaign[]> => {
   }
 };
 
-export const fetchAllInsights = async (): Promise<string[]> => {
-  if (!SUPABASE_URL_META || !SUPABASE_ANON_KEY_META) {
-    throw new Error("As credenciais do Supabase não foram configuradas para buscar o insight.");
-  }
-
-  // Busca todos os insights da tabela 'output', ordenados pelo mais recente
-  const requestUrl = `${SUPABASE_URL_META}/rest/v1/output?select=output&order=created_at.desc`;
-
-  try {
-    const response = await fetch(requestUrl, {
-      headers: {
-        'apikey': SUPABASE_ANON_KEY_META,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY_META}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Error fetching insights from Supabase:", errorData);
-      throw new Error(`Erro no Supabase ao buscar insights: ${errorData.message || 'Não foi possível buscar os dados.'}`);
-    }
-
-    const data: any[] = await response.json();
-
-    if (!data || data.length === 0) {
-      return []; // Retorna array vazio se não houver insights
-    }
+export const fetchAllInsights = async (platform: string = 'meta'): Promise<string[]> => {
+  if (platform === 'google') {
+    // Buscar insights do Google Ads (Gallant)
+    console.log('[fetchAllInsights] Platform Google Ads');
+    console.log('[fetchAllInsights] SUPABASE_URL_GOOGLE:', SUPABASE_URL_GOOGLE ? '✓' : '✗');
+    console.log('[fetchAllInsights] SUPABASE_ANON_KEY_GOOGLE:', SUPABASE_ANON_KEY_GOOGLE ? '✓' : '✗');
     
-    // Retorna um array com o conteúdo de cada 'output'
-    return data.map(item => item.output).filter((output): output is string => !!output);
+    if (!SUPABASE_URL_GOOGLE || !SUPABASE_ANON_KEY_GOOGLE) {
+      throw new Error("As credenciais do Supabase Google não foram configuradas para buscar o insight.");
+    }
 
-  } catch (error) {
-    console.error("Error in fetchAllInsights:", error);
-    throw error;
+    const requestUrl = `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_insights?select=insight&order=created_at.desc`;
+    console.log('[fetchAllInsights] Requesting:', requestUrl);
+
+    try {
+      const response = await fetch(requestUrl, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY_GOOGLE,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY_GOOGLE}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Error fetching Google Ads insights from Supabase:", errorData);
+        throw new Error(`Erro no Supabase ao buscar insights Google: ${errorData.message || 'Não foi possível buscar os dados.'}`);
+      }
+
+      const data: any[] = await response.json();
+
+      if (!data || data.length === 0) {
+        return [];
+      }
+      
+      return data.map(item => item.insight).filter((insight): insight is string => !!insight);
+
+    } catch (error) {
+      console.error("Error in fetchAllInsights (Google):", error);
+      throw error;
+    }
+  } else {
+    // Buscar insights do Meta Ads (padrão)
+    if (!SUPABASE_URL_META || !SUPABASE_ANON_KEY_META) {
+      throw new Error("As credenciais do Supabase não foram configuradas para buscar o insight.");
+    }
+
+    // Busca todos os insights da tabela 'output', ordenados pelo mais recente
+    const requestUrl = `${SUPABASE_URL_META}/rest/v1/output?select=output&order=created_at.desc`;
+
+    try {
+      const response = await fetch(requestUrl, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY_META,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY_META}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Error fetching insights from Supabase:", errorData);
+        throw new Error(`Erro no Supabase ao buscar insights: ${errorData.message || 'Não foi possível buscar os dados.'}`);
+      }
+
+      const data: any[] = await response.json();
+
+      if (!data || data.length === 0) {
+        return []; // Retorna array vazio se não houver insights
+      }
+      
+      // Retorna um array com o conteúdo de cada 'output'
+      return data.map(item => item.output).filter((output): output is string => !!output);
+
+    } catch (error) {
+      console.error("Error in fetchAllInsights:", error);
+      throw error;
+    }
   }
 };
 

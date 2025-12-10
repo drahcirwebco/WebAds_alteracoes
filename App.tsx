@@ -65,6 +65,7 @@ const App: React.FC = () => {
     const loadInitialData = async () => {
         setIsLoading(true);
         setError(null);
+        setDailyPerformanceData([]); // Reset daily data when view changes
         
         try {
             let data: Campaign[] = [];
@@ -91,7 +92,8 @@ const App: React.FC = () => {
                             clicks: d.clicks,
                             leads: d.leads,
                             impressions: d.impressions,
-                            conversions: d.leads
+                            conversions: d.leads,
+                            spend: d.spend || d.investimento || d.gasto || 0
                         }));
                         setDailyPerformanceData(formattedDaily);
                     }
@@ -162,13 +164,33 @@ const App: React.FC = () => {
                     
                     if (dailyResponse.data) {
                         // Formatar dados diários para o gráfico
-                        const formattedDaily = dailyResponse.data.map((d: any) => ({
-                            date: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-                            clicks: d.clicks,
-                            leads: d.leads,
-                            impressions: d.impressions,
-                            conversions: d.conversions || d.leads
-                        }));
+                        const formattedDaily = dailyResponse.data.map((d: any) => {
+                            // Tentar diferentes formas de parsear a data
+                            let dateObj;
+                            const dateField = d.date || d.data; // Tenta 'date' ou 'data'
+                            if (dateField) {
+                                // Se é uma string de data YYYY-MM-DD
+                                if (typeof dateField === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateField)) {
+                                    dateObj = new Date(dateField + 'T00:00:00');
+                                } else {
+                                    dateObj = new Date(dateField);
+                                }
+                            }
+                            
+                            // Formatar como DD/MM
+                            const formattedDate = dateObj && !isNaN(dateObj.getTime()) 
+                                ? dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                                : dateField;
+                            
+                            return {
+                                date: formattedDate,
+                                clicks: parseFloat(d.clicks || d.cliques || 0),
+                                leads: parseFloat(d.leads || 0),
+                                impressions: parseFloat(d.impressions || d.impressoes || 0),
+                                conversions: parseFloat(d.conversions || d.conversoes || 0),
+                                spend: parseFloat(d.spend || d.custo || 0)
+                            };
+                        });
                         setDailyPerformanceData(formattedDaily);
                         console.log('[Google Ads] Formatted daily data:', formattedDaily);
                     }

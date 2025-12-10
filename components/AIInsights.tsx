@@ -1,6 +1,5 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import type { Campaign } from '../types';
-import { insightsService } from '../services/insightsService';
 
 declare var marked: {
   parse(markdown: string): string;
@@ -11,6 +10,7 @@ interface AIInsightsProps {
   allCampaigns: Campaign[];
   isLoading: boolean;
   error: string | null;
+  insights?: string[];
 }
 
 const SparklesIcon: React.FC<{className?: string}> = ({ className }) => (
@@ -30,39 +30,20 @@ const LoadingSkeleton: React.FC = () => (
 );
 
 
-export const AIInsights: React.FC<AIInsightsProps> = ({ selectedCampaignIds, allCampaigns, isLoading, error }) => {
-    const [allInsights, setAllInsights] = useState<any[]>([]);
-    const [insightsLoading, setInsightsLoading] = useState(false);
-    const [insightsError, setInsightsError] = useState<string | null>(null);
-
-    // Buscar insights quando não tem campanha selecionada (todos os insights)
-    useEffect(() => {
-        if (selectedCampaignIds.length === 0) {
-            const fetchAllInsights = async () => {
-                try {
-                    setInsightsLoading(true);
-                    const response = await insightsService.getAllInsights();
-                    if (response.success) {
-                        setAllInsights(response.insights || []);
-                    }
-                } catch (err) {
-                    setInsightsError('Erro ao buscar insights');
-                    console.error('Error fetching all insights:', err);
-                } finally {
-                    setInsightsLoading(false);
-                }
-            };
-            fetchAllInsights();
-        }
-    }, []);
-    
+export const AIInsights: React.FC<AIInsightsProps> = ({ selectedCampaignIds, allCampaigns, isLoading, error, insights = [] }) => {
     const insightsToDisplay = useMemo(() => {
-        // Case 1: No campaigns selected. Show all insights.
-        if (selectedCampaignIds.length === 0) {
-            return allInsights.map((insight) => insight.content || '');
+        // Use the insights passed from Dashboard
+        if (!insights || insights.length === 0) {
+            return [];
         }
         
-        // Case 2: Specific campaigns are selected. Filter insights.
+        // Case 1: No campaigns selected. Show last insight from all campaigns
+        if (selectedCampaignIds.length === 0) {
+            // Mostrar apenas o primeiro insight (mais recente, já que vem ordenado por data DESC)
+            return insights.length > 0 ? [insights[0]] : [];
+        }
+        
+        // Case 2: Specific campaigns are selected. Filter and show last insight of each
         const selectedCampaigns = allCampaigns.filter(c => selectedCampaignIds.includes(c.id));
         if (selectedCampaigns.length === 0) {
             return [];
@@ -72,28 +53,30 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ selectedCampaignIds, all
         const relevantInsights: string[] = [];
         
         selectedCampaignNames.forEach((campaignName) => {
-            const insight = allInsights.find(i => 
-                i.content && i.content.includes(campaignName)
+            // Encontrar insights que mencionam essa campanha
+            const matchingInsights = insights.filter(i => 
+                i && i.includes(campaignName)
             );
-            if (insight) {
-                relevantInsights.push(insight.content);
+            // Adicionar apenas o primeiro (mais recente) insight dessa campanha
+            if (matchingInsights.length > 0) {
+                relevantInsights.push(matchingInsights[0]);
             }
         });
         
         return relevantInsights;
-    }, [selectedCampaignIds, allCampaigns, allInsights]);
+    }, [selectedCampaignIds, allCampaigns, insights]);
 
 
     const renderContent = () => {
-        if (isLoading || insightsLoading) {
+        if (isLoading) {
             return <LoadingSkeleton />;
         }
 
-        if (error || insightsError) {
+        if (error) {
             return (
                 <div className="text-center text-red-500">
                     <p className="font-semibold">Erro ao carregar análise:</p>
-                    <p className="text-sm mt-1">{error || insightsError}</p>
+                    <p className="text-sm mt-1">{error}</p>
                 </div>
             );
         }

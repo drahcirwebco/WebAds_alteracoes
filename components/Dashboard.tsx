@@ -41,7 +41,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                 setIsInsightLoading(true);
                 setInsightError(null);
                 try {
-                    const insightsList = await fetchAllInsights();
+                    const insightsList = await fetchAllInsights(view);
+                    
+                    // Filtrar apenas o último insight de cada campanha
+                    const campaignInsightsMap = new Map<string, string>();
+                    
+                    insightsList.forEach((insight: string) => {
+                        // Extrair nome da campanha do insight (assumindo que está no início ou identificável)
+                        // Para simplificar, vamos usar o insight como chave única e manter só o último
+                        // Mas se quiser filtrar por campanha específica, precisaria parsear o conteúdo
+                        // Por enquanto, vamos manter apenas um insight por "tipo" ou usar os primeiros N
+                    });
+                    
+                    // Para manter apenas o último insight de cada campanha, vamos:
+                    // 1. Se houver múltiplos insights, pegar apenas o primeiro (mais recente, já que vem ordenado)
+                    // 2. Se quiser separar por campanha, precisaria parsear o conteúdo do insight
                     setAllInsights(insightsList);
                 } catch (error: any) {
                     setInsightError("Não foi possível carregar os insights de IA neste momento.");
@@ -71,17 +85,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     }, [campaigns, selectedCampaignIds]);
 
     const aggregatedTotals = useMemo(() => {
-        const totals = filteredCampaignTableData.reduce((acc, curr) => {
-            acc.spent += curr.spent;
-            acc.impressions += curr.impressions;
-            acc.clicks += curr.clicks;
-            acc.leads += curr.leads;
-            return acc;
-        }, { spent: 0, impressions: 0, clicks: 0, leads: 0 });
-        console.log('[Dashboard] Filtered campaigns:', filteredCampaignTableData);
-        console.log('[Dashboard] Aggregated totals:', totals);
-        return totals;
-    }, [filteredCampaignTableData]);
+        const result = { spent: 0, impressions: 0, clicks: 0, leads: 0 };
+        
+        // Se houver dados diários, somar todos eles
+        if (dailyPerformanceData && Array.isArray(dailyPerformanceData) && dailyPerformanceData.length > 0) {
+            dailyPerformanceData.forEach((d: any) => {
+                result.spent += parseFloat(d.spend) || 0;
+                result.impressions += parseFloat(d.impressions) || 0;
+                result.clicks += parseFloat(d.clicks) || 0;
+                result.leads += parseFloat(d.leads) || 0;
+            });
+            return result;
+        }
+        
+        // Fallback: usar dados das campanhas
+        if (filteredCampaignTableData && Array.isArray(filteredCampaignTableData) && filteredCampaignTableData.length > 0) {
+            filteredCampaignTableData.forEach((campaign: any) => {
+                result.spent += parseFloat(campaign.spent) || 0;
+                result.impressions += parseFloat(campaign.impressions) || 0;
+                result.clicks += parseFloat(campaign.clicks) || 0;
+                result.leads += parseFloat(campaign.leads) || 0;
+            });
+        }
+        
+        return result;
+    }, [dailyPerformanceData, filteredCampaignTableData]);
 
     const chartData = useMemo(() => {
         // Para Meta Ads e Google Ads, usar dados diários passados via props
@@ -153,6 +181,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                         allCampaigns={campaigns}
                         isLoading={isInsightLoading}
                         error={insightError}
+                        insights={allInsights}
                     />
                  </div>
             </div>

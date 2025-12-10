@@ -73,12 +73,12 @@ router.get('/campaigns/google-ads', async (req, res) => {
         name: row.campanha || row.Campanha || row.campaign || row.Campaign || 'Unknown Campaign',
         platform: 'Google Ads',
         status: 'active',
-        startDate: row.data_inicio || row.Data_inicio || row.date,
-        endDate: row.data_final || row.Data_final,
+        startDate: row.data || row.data_inicio || row.Data_inicio || row.date,
+        endDate: row.data || row.data_final || row.Data_final,
         metrics: {
           impressions: parseFloat(getFieldValue(['impressoes', 'Impressoes', 'impressions', 'Impressions'])) || 0,
           clicks: parseFloat(getFieldValue(['cliques', 'Cliques', 'clicks', 'Clicks'])) || 0,
-          spend: parseFloat(getFieldValue(['gasto', 'Gasto', 'valor_investido', 'Valor_investido', 'spend', 'valor'])) || 0,
+          spend: parseFloat(getFieldValue(['custo', 'Custo', 'gasto', 'Gasto', 'valor_investido', 'Valor_investido', 'spend', 'valor'])) || 0,
           leads: parseFloat(getFieldValue(['leads', 'Leads'])) || 0,
           conversions: parseFloat(getFieldValue(['conversoes', 'Conversoes', 'conversions', 'Conversions'])) || 0,
           costPerClick: 0,
@@ -126,12 +126,19 @@ router.get('/campaigns/google-ads/daily', async (req, res) => {
     }
 
     console.log(`Encontrados ${data?.length || 0} registros diários`);
+    
+    // Log para debug: mostrar colunas do primeiro registro
+    if (data && data.length > 0) {
+      console.log('[Google Ads Daily] Sample record columns:', Object.keys(data[0]));
+      console.log('[Google Ads Daily] First record:', data[0]);
+    }
 
     // Transform data to daily performance format
     const dailyData = {};
     
     (data || []).forEach((row) => {
-      const date = row.data_inicio || row.Data_inicio || row.date || 'unknown';
+      // A coluna de data é 'data'
+      const date = row.data || 'unknown';
       
       if (!dailyData[date]) {
         dailyData[date] = {
@@ -148,14 +155,24 @@ router.get('/campaigns/google-ads/daily', async (req, res) => {
       dailyData[date].clicks += parseFloat(row.cliques || row.Cliques || row.clicks || 0) || 0;
       dailyData[date].leads += parseFloat(row.leads || row.Leads || 0) || 0;
       dailyData[date].impressions += parseFloat(row.impressoes || row.Impressoes || row.impressions || 0) || 0;
-      dailyData[date].spend += parseFloat(row.gasto || row.Gasto || row.valor_investido || row.Valor_investido || row.spend || 0) || 0;
+      dailyData[date].spend += parseFloat(row.custo || row.Custo || row.gasto || row.Gasto || row.valor_investido || row.Valor_investido || row.spend || 0) || 0;
       dailyData[date].conversions += parseFloat(row.conversoes || row.Conversoes || row.conversions || row.leads || 0) || 0;
     });
 
     // Convert to array and sort by date
     const dailyArray = Object.values(dailyData).sort((a, b) => 
       new Date(a.date) - new Date(b.date)
-    );
+    ).map(item => ({
+      date: item.date,
+      clicks: parseFloat(item.clicks) || 0,
+      leads: parseFloat(item.leads) || 0,
+      impressions: parseFloat(item.impressions) || 0,
+      spend: parseFloat(item.spend) || 0,
+      conversions: parseFloat(item.conversions) || 0
+    }));
+
+    console.log('[Google Ads Daily] Final daily array sample:', dailyArray.slice(0, 2));
+    console.log('[Google Ads Daily] Total records:', dailyArray.length);
 
     res.json({
       success: true,
