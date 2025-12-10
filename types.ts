@@ -36,6 +36,9 @@ export interface ChartDataPoint {
   clicks: number;
   conversions: number;
   impressions: number;
+  spend?: number;
+  leads?: number;
+  _source?: string;
 }
 
 export interface WebsiteDailyMetric {

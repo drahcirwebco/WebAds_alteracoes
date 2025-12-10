@@ -8,9 +8,9 @@ interface CampaignPerformanceChartProps {
 
 export const CampaignPerformanceChart: React.FC<CampaignPerformanceChartProps> = ({ data }) => {
   return (
-    <div className="bg-card-light dark:bg-card-dark p-6 rounded-lg shadow-md border border-border-light dark:border-border-dark h-full">
+    <div className="w-full h-full p-6 flex flex-col">
       <h3 className="text-lg font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Desempenho ao Longo do Tempo</h3>
-      <div className="h-80">
+      <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}

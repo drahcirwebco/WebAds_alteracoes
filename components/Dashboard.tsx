@@ -35,6 +35,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     const [isInsightLoading, setIsInsightLoading] = useState<boolean>(true);
     const [insightError, setInsightError] = useState<string | null>(null);
 
+    // Efeito para selecionar todas as campanhas por padrão
+    useEffect(() => {
+        if (campaigns && campaigns.length > 0) {
+            setSelectedCampaignIds(campaigns.map(c => c.id));
+        }
+    }, [campaigns]);
+
     useEffect(() => {
         const loadInsights = async () => {
             if (view === 'meta' || view === 'google') {
@@ -42,21 +49,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                 setInsightError(null);
                 try {
                     const insightsList = await fetchAllInsights(view);
-                    
-                    // Filtrar apenas o último insight de cada campanha
-                    const campaignInsightsMap = new Map<string, string>();
-                    
-                    insightsList.forEach((insight: string) => {
-                        // Extrair nome da campanha do insight (assumindo que está no início ou identificável)
-                        // Para simplificar, vamos usar o insight como chave única e manter só o último
-                        // Mas se quiser filtrar por campanha específica, precisaria parsear o conteúdo
-                        // Por enquanto, vamos manter apenas um insight por "tipo" ou usar os primeiros N
-                    });
-                    
-                    // Para manter apenas o último insight de cada campanha, vamos:
-                    // 1. Se houver múltiplos insights, pegar apenas o primeiro (mais recente, já que vem ordenado)
-                    // 2. Se quiser separar por campanha, precisaria parsear o conteúdo do insight
                     setAllInsights(insightsList);
+                } catch (error: any) {
+                    setInsightError("Não foi possível carregar os insights de IA neste momento.");
+                } finally {
+                    setIsInsightLoading(false);
+                }
+            } else if (view === 'principal') {
+                // Para visão principal, carregar insights de ambas as plataformas
+                setIsInsightLoading(true);
+                setInsightError(null);
+                try {
+                    const googleInsights = await fetchAllInsights('google');
+                    const metaInsights = await fetchAllInsights('meta');
+                    
+                    // Combinar insights de ambas as plataformas
+                    const combinedInsights = [...googleInsights, ...metaInsights];
+                    setAllInsights(combinedInsights);
                 } catch (error: any) {
                     setInsightError("Não foi possível carregar os insights de IA neste momento.");
                 } finally {
@@ -68,8 +77,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
             }
         };
         loadInsights();
-        // Reset selection when view changes
-        setSelectedCampaignIds([]);
     }, [view]);
 
     const filteredPerformanceDataByDate = useMemo(
@@ -112,8 +119,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     }, [dailyPerformanceData, filteredCampaignTableData]);
 
     const chartData = useMemo(() => {
-        // Para Meta Ads e Google Ads, usar dados diários passados via props
-        if ((view === 'meta' || view === 'google') && dailyPerformanceData && dailyPerformanceData.length > 0) {
+        // Para Meta Ads, Google Ads e Visão Principal, usar dados diários passados via props
+        if ((view === 'meta' || view === 'google' || view === 'principal') && dailyPerformanceData && dailyPerformanceData.length > 0) {
+            const source = dailyPerformanceData[0]?._source || 'unknown';
+            console.log(`[Dashboard] chartData for ${view} (source: ${source}):`, dailyPerformanceData.length, 'days');
             return dailyPerformanceData;
         }
         
@@ -169,7 +178,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                     </div>
                     
                     {/* Main Chart */}
-                     <div className="h-[400px]">
+                     <div className="bg-card-light dark:bg-card-dark rounded-lg shadow-md border border-border-light dark:border-border-dark" style={{ height: '400px' }}>
                         <CampaignPerformanceChart data={chartData} />
                      </div>
                  </div>

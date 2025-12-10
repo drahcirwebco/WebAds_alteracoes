@@ -70,7 +70,158 @@ const App: React.FC = () => {
         try {
             let data: Campaign[] = [];
             
-            if (currentView === 'meta') {
+            if (currentView === 'principal') {
+                // Carregar dados consolidados de Google + Meta
+                try {
+                    // @ts-ignore
+                    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                    
+                    // Buscar Google Ads
+                    const googleResponse = await googleAdsService.getCampaigns();
+                    const googleDailyResponse = await googleAdsService.getDailyPerformance();
+                    
+                    // Buscar Meta Ads
+                    const metaResponse = await metaAdsService.getCampaigns();
+                    const metaDailyResponse = await fetch(`${apiUrl}/campaigns/meta-ads/daily`, {
+                        credentials: 'include'
+                    });
+                    const metaDailyJson = await metaDailyResponse.json();
+                    
+                    // Processar Google Ads
+                    if (googleResponse.success && googleResponse.campaigns && googleResponse.campaigns.length > 0) {
+                        const googleCampaigns = googleResponse.campaigns.map((campaign: any) => ({
+                            id: campaign.id,
+                            name: campaign.name,
+                            platform: campaign.platform || 'Google Ads',
+                            status: campaign.status || 'active',
+                            impressions: campaign.metrics?.impressions || 0,
+                            clicks: campaign.metrics?.clicks || 0,
+                            spent: campaign.metrics?.spend || 0,
+                            conversions: campaign.metrics?.conversions || 0,
+                            leads: campaign.metrics?.leads || 0,
+                            cpa: campaign.metrics?.cpa || 0,
+                        }));
+                        data.push(...googleCampaigns);
+                    }
+                    
+                    // Processar Meta Ads
+                    if (metaResponse.success && metaResponse.campaigns && metaResponse.campaigns.length > 0) {
+                        const metaCampaigns = metaResponse.campaigns.map((campaign: any) => ({
+                            id: campaign.id,
+                            name: campaign.name,
+                            platform: 'Facebook Ads',
+                            status: campaign.status || 'active',
+                            impressions: campaign.metrics?.impressions || 0,
+                            clicks: campaign.metrics?.clicks || 0,
+                            spent: campaign.metrics?.spend || 0,
+                            conversions: 0,
+                            leads: campaign.metrics?.leads || 0,
+                            cpa: campaign.metrics?.leads > 0 ? parseFloat((campaign.metrics?.spend / campaign.metrics?.leads).toFixed(2)) : 0,
+                        }));
+                        data.push(...metaCampaigns);
+                    }
+                    
+                    // Função auxiliar para formatar data
+                    const formatDate = (dateField: any): string => {
+                        let dateObj;
+                        if (dateField) {
+                            if (typeof dateField === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateField)) {
+                                dateObj = new Date(dateField + 'T00:00:00');
+                            } else {
+                                dateObj = new Date(dateField);
+                            }
+                        }
+                        return dateObj && !isNaN(dateObj.getTime()) 
+                            ? dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                            : String(dateField);
+                    };
+
+                    // Processar dados diários consolidados
+                    const googleDailyFormatted = googleDailyResponse.data?.map((d: any) => {
+                        const formattedDate = formatDate(d.date || d.data);
+                        
+                        return {
+                            date: formattedDate,
+                            clicks: parseFloat(d.clicks || d.cliques || 0),
+                            leads: parseFloat(d.leads || 0),
+                            impressions: parseFloat(d.impressions || d.impressoes || 0),
+                            conversions: parseFloat(d.conversions || d.conversoes || 0),
+                            spend: parseFloat(d.spend || d.custo || 0)
+                        };
+                    }) || [];
+                    
+                    const metaDailyFormatted = metaDailyJson.data?.map((d: any) => ({
+                        date: formatDate(d.date),
+                        clicks: d.clicks,
+                        leads: d.leads,
+                        impressions: d.impressions,
+                        conversions: d.leads,
+                        spend: d.spend || d.investimento || d.gasto || 0
+                    })) || [];
+                    
+                    // Consolidar dados por data
+                    const dateMap = new Map<string, any>();
+                    
+                    googleDailyFormatted.forEach((d: any) => {
+                        if (!dateMap.has(d.date)) {
+                            dateMap.set(d.date, {
+                                date: d.date,
+                                clicks: 0,
+                                leads: 0,
+                                impressions: 0,
+                                conversions: 0,
+                                spend: 0
+                            });
+                        }
+                        const entry = dateMap.get(d.date);
+                        entry.clicks += d.clicks;
+                        entry.leads += d.leads;
+                        entry.impressions += d.impressions;
+                        entry.conversions += d.conversions;
+                        entry.spend += d.spend;
+                    });
+                    
+                    metaDailyFormatted.forEach((d: any) => {
+                        if (!dateMap.has(d.date)) {
+                            dateMap.set(d.date, {
+                                date: d.date,
+                                clicks: 0,
+                                leads: 0,
+                                impressions: 0,
+                                conversions: 0,
+                                spend: 0
+                            });
+                        }
+                        const entry = dateMap.get(d.date);
+                        entry.clicks += d.clicks;
+                        entry.leads += d.leads;
+                        entry.impressions += d.impressions;
+                        entry.conversions += d.conversions;
+                        entry.spend += d.spend;
+                    });
+                    
+                    const combinedDailyData = Array.from(dateMap.values()).sort((a, b) => {
+                        // Tentar parsear como data em formato pt-BR (dd/mm)
+                        const parseDate = (dateStr: string) => {
+                            const parts = dateStr.split('/');
+                            if (parts.length === 2) {
+                                return new Date(new Date().getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                            }
+                            return new Date(dateStr);
+                        };
+                        return parseDate(a.date).getTime() - parseDate(b.date).getTime();
+                    }).map((d: any) => ({
+                        ...d,
+                        _source: 'consolidated' // Marcar como dados consolidados
+                    }));
+                    console.log('[App] Combined daily data for principal:', combinedDailyData.length, 'days', combinedDailyData.slice(0, 3));
+                    setDailyPerformanceData(combinedDailyData);
+                    
+                } catch (e) {
+                    console.error("Error loading consolidated data:", e);
+                    setError("Erro ao carregar dados consolidados das plataformas.");
+                }
+            } else if (currentView === 'meta') {
                 try {
                     // @ts-ignore
                     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
