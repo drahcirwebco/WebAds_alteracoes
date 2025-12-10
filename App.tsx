@@ -77,8 +77,8 @@ const App: React.FC = () => {
                     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
                     
                     // Buscar Google Ads
-                    const googleResponse = await googleAdsService.getCampaigns();
-                    const googleDailyResponse = await googleAdsService.getDailyPerformance();
+                    const googleResponse = await googleAdsService.getCampaignsSupabase();
+                    const googleDailyResponse = await googleAdsService.getDailyPerformanceSupabase();
                     
                     // Buscar Meta Ads
                     const metaResponse = await metaAdsService.getCampaigns();
@@ -118,42 +118,22 @@ const App: React.FC = () => {
                         data.push(...metaCampaigns);
                     }
                     
-                    // Função auxiliar para formatar data
-                    const formatDate = (dateField: any): string => {
-                        let dateObj;
-                        if (dateField) {
-                            if (typeof dateField === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateField)) {
-                                dateObj = new Date(dateField + 'T00:00:00');
-                            } else {
-                                dateObj = new Date(dateField);
-                            }
-                        }
-                        return dateObj && !isNaN(dateObj.getTime()) 
-                            ? dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-                            : String(dateField);
-                    };
-
-                    // Processar dados diários consolidados
-                    const googleDailyFormatted = googleDailyResponse.data?.map((d: any) => {
-                        const formattedDate = formatDate(d.date || d.data);
-                        
-                        return {
-                            date: formattedDate,
-                            clicks: parseFloat(d.clicks || d.cliques || 0),
-                            leads: parseFloat(d.leads || 0),
-                            impressions: parseFloat(d.impressions || d.impressoes || 0),
-                            conversions: parseFloat(d.conversions || d.conversoes || 0),
-                            spend: parseFloat(d.spend || d.custo || 0)
-                        };
-                    }) || [];
+                    const googleDailyFormatted = googleDailyResponse.data?.map((d: any) => ({
+                        date: d.date, // Já vem formatado do Supabase
+                        clicks: d.clicks,
+                        leads: d.leads,
+                        impressions: d.impressions,
+                        conversions: d.conversions,
+                        spend: d.spend
+                    })) || [];
                     
                     const metaDailyFormatted = metaDailyResponse.data?.map((d: any) => ({
-                        date: formatDate(d.date),
+                        date: d.date,
                         clicks: d.clicks,
                         leads: d.leads,
                         impressions: d.impressions,
                         conversions: d.leads,
-                        spend: d.spend || d.investimento || d.gasto || 0
+                        spend: d.spend
                     })) || [];
                     
                     // Consolidar dados por data
