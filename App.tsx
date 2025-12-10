@@ -82,10 +82,7 @@ const App: React.FC = () => {
                     
                     // Buscar Meta Ads
                     const metaResponse = await metaAdsService.getCampaigns();
-                    const metaDailyResponse = await fetch(`${apiUrl}/campaigns/meta-ads/daily`, {
-                        credentials: 'include'
-                    });
-                    const metaDailyJson = await metaDailyResponse.json();
+                    const metaDailyResponse = await metaAdsService.getDailyPerformanceSupabase();
                     
                     // Processar Google Ads
                     if (googleResponse.success && googleResponse.campaigns && googleResponse.campaigns.length > 0) {
@@ -150,7 +147,7 @@ const App: React.FC = () => {
                         };
                     }) || [];
                     
-                    const metaDailyFormatted = metaDailyJson.data?.map((d: any) => ({
+                    const metaDailyFormatted = metaDailyResponse.data?.map((d: any) => ({
                         date: formatDate(d.date),
                         clicks: d.clicks,
                         leads: d.leads,
@@ -231,14 +228,11 @@ const App: React.FC = () => {
                     console.log('[DEBUG] Meta Ads response:', response);
                     
                     // Buscar dados diários para o gráfico
-                    const dailyResponse = await fetch(`${apiUrl}/campaigns/meta-ads/daily`, {
-                        credentials: 'include'
-                    });
-                    const dailyJson = await dailyResponse.json();
+                    const dailyResponse = await metaAdsService.getDailyPerformanceSupabase();
                     
-                    if (dailyJson.success && dailyJson.data) {
+                    if (dailyResponse.success && dailyResponse.data) {
                         // Formatar dados diários para o gráfico
-                        const formattedDaily = dailyJson.data.map((d: any) => ({
+                        const formattedDaily = dailyResponse.data.map((d: any) => ({
                             date: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
                             clicks: d.clicks,
                             leads: d.leads,
