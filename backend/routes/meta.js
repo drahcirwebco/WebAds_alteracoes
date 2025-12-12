@@ -152,4 +152,47 @@ router.get('/campaigns/meta-ads/status', async (req, res) => {
   }
 });
 
+// Get available dates from Meta Ads
+router.get('/dates/meta-ads', async (req, res) => {
+  try {
+    console.log('[Meta Ads] Fetching available dates from facebook-ads...');
+    const client = supabaseAdmin || supabase;
+    
+    const { data, error } = await client
+      .from('facebook-ads')
+      .select('Data_inicio');
+
+    if (error) {
+      console.error('[Meta Ads] Error fetching dates:', error);
+      return res.status(500).json({ error: 'Failed to fetch dates', details: error.message });
+    }
+
+    // Extrair datas únicas - manter em formato ISO (yyyy-MM-dd)
+    const uniqueDates = [...new Set(
+      (data || [])
+        .map(row => {
+          const dateStr = row.Data_inicio;
+          if (!dateStr) return null;
+          
+          // Se já está em ISO, retorna direto
+          if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+            return dateStr.split('T')[0]; // Remove hora se houver
+          }
+          return null;
+        })
+        .filter(date => date !== null)
+    )].sort();
+
+    console.log(`[Meta Ads] Found ${uniqueDates.length} unique dates`);
+
+    res.json({
+      success: true,
+      dates: uniqueDates
+    });
+  } catch (error) {
+    console.error('Error in /dates/meta-ads:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 export default router;

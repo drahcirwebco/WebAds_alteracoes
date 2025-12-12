@@ -79,7 +79,7 @@ router.get('/campaigns/google-ads', async (req, res) => {
           impressions: parseFloat(getFieldValue(['impressoes', 'Impressoes', 'impressions', 'Impressions'])) || 0,
           clicks: parseFloat(getFieldValue(['cliques', 'Cliques', 'clicks', 'Clicks'])) || 0,
           spend: parseFloat(getFieldValue(['custo', 'Custo', 'gasto', 'Gasto', 'valor_investido', 'Valor_investido', 'spend', 'valor'])) || 0,
-          leads: parseFloat(getFieldValue(['leads', 'Leads'])) || 0,
+          leads: parseFloat(getFieldValue(['conversoes', 'Conversoes', 'leads', 'Leads'])) || 0,
           conversions: parseFloat(getFieldValue(['conversoes', 'Conversoes', 'conversions', 'Conversions'])) || 0,
           costPerClick: 0,
           cpa: 0
@@ -153,7 +153,7 @@ router.get('/campaigns/google-ads/daily', async (req, res) => {
       
       // Flexibilidade com nomes de colunas
       dailyData[date].clicks += parseFloat(row.cliques || row.Cliques || row.clicks || 0) || 0;
-      dailyData[date].leads += parseFloat(row.leads || row.Leads || 0) || 0;
+      dailyData[date].leads += parseFloat(row.conversoes || row.Conversoes || row.leads || row.Leads || 0) || 0;
       dailyData[date].impressions += parseFloat(row.impressoes || row.Impressoes || row.impressions || 0) || 0;
       dailyData[date].spend += parseFloat(row.custo || row.Custo || row.gasto || row.Gasto || row.valor_investido || row.Valor_investido || row.spend || 0) || 0;
       dailyData[date].conversions += parseFloat(row.conversoes || row.Conversoes || row.conversions || row.leads || 0) || 0;
@@ -256,6 +256,50 @@ router.get('/insights/google-ads/:campaignName', async (req, res) => {
     });
   } catch (error) {
     console.error('Error in /insights/google-ads/:campaignName:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// Get available dates from Google Ads
+router.get('/dates/google-ads', async (req, res) => {
+  try {
+    const client = supabaseGoogle;
+    
+    console.log('[Google Ads] Fetching available dates from Gallant_dadosDiarios...');
+    
+    const { data, error } = await client
+      .from('Gallant_dadosDiarios')
+      .select('data');
+
+    if (error) {
+      console.error('[Google Ads] Error fetching dates:', error);
+      return res.status(500).json({ error: 'Failed to fetch dates', details: error.message });
+    }
+
+    // Extrair datas únicas - manter em formato ISO (yyyy-MM-dd)
+    const uniqueDates = [...new Set(
+      (data || [])
+        .map(row => {
+          const dateStr = row.data;
+          if (!dateStr) return null;
+          
+          // Se já está em ISO, retorna direto
+          if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+            return dateStr.split('T')[0]; // Remove hora se houver
+          }
+          return null;
+        })
+        .filter(date => date !== null)
+    )].sort();
+
+    console.log(`[Google Ads] Found ${uniqueDates.length} unique dates`);
+
+    res.json({
+      success: true,
+      dates: uniqueDates
+    });
+  } catch (error) {
+    console.error('Error in /dates/google-ads:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
