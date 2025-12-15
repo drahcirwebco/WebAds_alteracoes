@@ -203,12 +203,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     };
 
     const handleResetDateRange = () => {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - 6);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
         setDateRange({
-            start: startDate.toISOString().split('T')[0],
-            end: endDate.toISOString().split('T')[0],
+            start: yesterdayStr,
+            end: yesterdayStr,
         });
     };
 

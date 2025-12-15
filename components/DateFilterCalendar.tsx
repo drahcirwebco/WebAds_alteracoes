@@ -161,7 +161,7 @@ export const DateFilterCalendar: React.FC<DateFilterCalendarProps> = ({
               locale={ptBR}
               dateFormat="dd/MM/yyyy"
               calendarClassName="custom-datepicker"
-              shouldCloseOnSelect={true}
+              shouldCloseOnSelect={false}
             />
           </div>
         )}
