@@ -304,4 +304,83 @@ router.get('/dates/google-ads', async (req, res) => {
   }
 });
 
+// Get Google Ads campaign data for a specific date
+router.get('/campaigns/google-ads/by-date/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    const client = supabaseGoogle;
+    
+    console.log(`[Google Ads By Date] Fetching campaign data for date: ${date}`);
+    
+    // Tentar buscar com diferentes formatos de coluna de data
+    let result = await client
+      .from('Gallant_dadosDiarios')
+      .select('*')
+      .eq('data', date);
+
+    let data = result.data;
+    let error = result.error;
+    
+    // Se nenhum resultado, tentar com outras possíveis colunas de data
+    if ((data?.length || 0) === 0 && !error) {
+      console.log(`[Google Ads By Date] No results with 'data' column, trying other formats...`);
+      
+      // Tentar buscar todos e depois filtrar em memória
+      const allResult = await client.from('Gallant_dadosDiarios').select('*');
+      if (!allResult.error && allResult.data) {
+        data = allResult.data.filter((row) => {
+          const rowDate = row.data || row.Data || row.date || row.Date || '';
+          return rowDate === date;
+        });
+        console.log(`[Google Ads By Date] Found ${data?.length || 0} records after filtering in memory`);
+        
+        // Log das colunas disponíveis
+        if (allResult.data.length > 0) {
+          console.log('[Google Ads By Date] Available columns:', Object.keys(allResult.data[0]));
+        }
+      }
+    } else if (error) {
+      console.error('[Google Ads By Date] Error fetching date data:', error);
+      return res.status(500).json({ error: 'Failed to fetch data for date', details: error.message });
+    }
+
+    console.log(`[Google Ads By Date] Total records found: ${data?.length || 0}`);
+
+    // Transformar em formato de campanha
+    const campaigns = (data || []).map((row) => {
+      const campaignName = row.campanha || row.Campanha || row.campaign || row.Campaign || 'Unknown';
+      const cpc = parseFloat(row.cpc || row.CPC || 0) || 0;
+      const cpa = parseFloat(row.cpa || row.CPA || 0) || 0;
+      const spent = parseFloat(row.custo || row.Custo || 0) || 0;
+      const clicks = parseFloat(row.cliques || row.Cliques || 0) || 0;
+      const conversions = parseFloat(row.conversoes || row.Conversoes || 0) || 0;
+      
+      return {
+        id: `google-${date}-${campaignName.replace(/\s+/g, '-')}`,
+        name: campaignName,
+        spent: spent,
+        impressions: parseFloat(row.impressoes || row.Impressoes || 0) || 0,
+        clicks: clicks,
+        conversions: conversions,
+        leads: conversions,
+        cpc: cpc || (clicks > 0 ? spent / clicks : 0),
+        cpa: cpa || (conversions > 0 ? spent / conversions : 0),
+        platform: 'Google Ads',
+        date: date
+      };
+    });
+
+    console.log(`[Google Ads By Date] Returning ${campaigns.length} campaigns`);
+
+    res.json({
+      success: true,
+      date: date,
+      campaigns: campaigns
+    });
+  } catch (error) {
+    console.error('Error in /campaigns/google-ads/by-date:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 export default router;

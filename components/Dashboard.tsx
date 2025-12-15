@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Campaign, ChartDataPoint } from '../types';
 import { MetricCard } from './MetricCard';
 import { CampaignPerformanceChart } from './CampaignPerformanceChart';
@@ -9,16 +9,6 @@ import { AlertSection } from './AlertSection';
 import { DateFilterCalendar } from './DateFilterCalendar';
 import { fetchAllInsights } from '../services/geminiService';
 
-const getInitialDateRange = () => {
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(endDate.getDate() - 6);
-  return {
-    start: startDate.toISOString().split('T')[0],
-    end: endDate.toISOString().split('T')[0],
-  };
-};
-
 interface DashboardProps {
     view: string;
     campaigns: Campaign[];
@@ -28,11 +18,21 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerformanceData = [], isLoading, error }) => {
-    const [dateRange, setDateRange] = useState(getInitialDateRange);
     const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
-    const [selectedDailyDate, setSelectedDailyDate] = useState<string | null>(null);
-    const [selectedTableDate, setSelectedTableDate] = useState<string | null>(null);
-    const [availableTableDates, setAvailableTableDates] = useState<string[]>([]);
+    const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        return {
+            start: yesterdayStr,
+            end: yesterdayStr,
+        };
+    });
+    
+    // Refs para os inputs de data
+    const startDateInputRef = useRef<HTMLInputElement>(null);
+    const endDateInputRef = useRef<HTMLInputElement>(null);
     
     // Insights State (Specific to Dashboard view logic, kept here)
     const [allInsights, setAllInsights] = useState<string[]>([]);
@@ -45,46 +45,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
             setSelectedCampaignIds(campaigns.map(c => c.id));
         }
     }, [campaigns]);
-
-    // Buscar datas disponíveis do backend
-    useEffect(() => {
-        const loadAvailableDates = async () => {
-            // @ts-ignore
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            
-            try {
-                let dates: string[] = [];
-                
-                if (view === 'google') {
-                    const response = await fetch(`${apiUrl}/dates/google-ads`, { credentials: 'include' });
-                    const json = await response.json();
-                    dates = json.dates || [];
-                } else if (view === 'meta') {
-                    const response = await fetch(`${apiUrl}/dates/meta-ads`, { credentials: 'include' });
-                    const json = await response.json();
-                    dates = json.dates || [];
-                } else if (view === 'principal') {
-                    // Buscar de ambas as plataformas e combinar
-                    const [googleRes, metaRes] = await Promise.all([
-                        fetch(`${apiUrl}/dates/google-ads`, { credentials: 'include' }),
-                        fetch(`${apiUrl}/dates/meta-ads`, { credentials: 'include' })
-                    ]);
-                    const googleJson = await googleRes.json();
-                    const metaJson = await metaRes.json();
-                    const allDates = [...new Set([...(googleJson.dates || []), ...(metaJson.dates || [])])];
-                    dates = allDates.sort();
-                }
-                
-                console.log(`[Dashboard] Available dates for ${view}:`, dates.length);
-                setAvailableTableDates(dates);
-            } catch (error) {
-                console.error('[Dashboard] Error loading dates:', error);
-                setAvailableTableDates([]);
-            }
-        };
-        
-        loadAvailableDates();
-    }, [view]);
 
     useEffect(() => {
         const loadInsights = async () => {
@@ -124,72 +84,83 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     }, [view]);
 
     const filteredPerformanceDataByDate = useMemo(
-        () => [],
-        [dateRange]
+        () => {
+            if (!dailyPerformanceData || dailyPerformanceData.length === 0) return [];
+            
+            return dailyPerformanceData.filter((d: any) => {
+                const date = d.date;
+                return date >= dateRange.start && date <= dateRange.end;
+            });
+        },
+        [dailyPerformanceData, dateRange]
     );
 
     const filteredCampaignTableData = useMemo(() => {
-        let filtered = campaigns;
-        
-        console.log('[Dashboard] Filtrando campanhas:', {
-            totalCampaigns: campaigns.length,
-            selectedCampaignIds,
-            selectedTableDate,
-            sampleCampaigns: campaigns.slice(0, 2).map(c => ({ id: c.id, name: c.name, startDate: c.startDate }))
-        });
-        
-        // Filtrar por campanhas selecionadas
-        if (selectedCampaignIds.length > 0) {
-            filtered = filtered.filter(campaign => selectedCampaignIds.includes(campaign.id));
-        }
-        
-        // Filtrar por data selecionada na tabela
-        if (selectedTableDate) {
-            console.log('[Dashboard] Aplicando filtro de data:', selectedTableDate);
-            filtered = filtered.filter(campaign => {
-                const campaignDate = campaign.startDate;
-                if (!campaignDate) {
-                    console.log('[Dashboard] Campaign sem startDate:', campaign.name);
-                    return false;
-                }
-                
-                // Normalizar data para ISO (yyyy-MM-dd) para comparação
-                let normalizedCampaignDate = '';
-                if (typeof campaignDate === 'string') {
-                    if (/^\d{4}-\d{2}-\d{2}/.test(campaignDate)) {
-                        // Já está em ISO
-                        normalizedCampaignDate = campaignDate.split('T')[0];
-                    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(campaignDate)) {
-                        // Converter pt-BR para ISO
-                        const [day, month, year] = campaignDate.split('/');
-                        normalizedCampaignDate = `${year}-${month}-${day}`;
-                    }
-                }
-                
-                const matches = normalizedCampaignDate === selectedTableDate;
-                console.log('[Dashboard] Comparando:', {
-                    campaign: campaign.name,
-                    campaignDate,
-                    normalized: normalizedCampaignDate,
-                    selectedTableDate,
-                    matches
-                });
-                
-                // selectedTableDate vem em formato ISO do backend
-                return matches;
+        // Se houver dados diários filtrados por data, usar apenas esses dados
+        if (filteredPerformanceDataByDate && Array.isArray(filteredPerformanceDataByDate) && filteredPerformanceDataByDate.length > 0) {
+            // Calcular totais agregados dos dados diários por período
+            const dailyTotals = {
+                spent: 0,
+                impressions: 0,
+                clicks: 0,
+                leads: 0
+            };
+            
+            filteredPerformanceDataByDate.forEach((d: any) => {
+                dailyTotals.spent += parseFloat(d.spend) || 0;
+                dailyTotals.impressions += parseFloat(d.impressions) || 0;
+                dailyTotals.clicks += parseFloat(d.clicks) || 0;
+                dailyTotals.leads += parseFloat(d.leads) || 0;
             });
-            console.log('[Dashboard] Após filtro de data:', filtered.length, 'campanhas');
+            
+            // Calcular totais das campanhas filtradas
+            const campaignTotals = {
+                spent: 0,
+                impressions: 0,
+                clicks: 0,
+                leads: 0
+            };
+            
+            let filtered = campaigns;
+            if (selectedCampaignIds.length > 0) {
+                filtered = filtered.filter(campaign => selectedCampaignIds.includes(campaign.id));
+            }
+            
+            filtered.forEach((campaign: any) => {
+                campaignTotals.spent += parseFloat(campaign.spent) || 0;
+                campaignTotals.impressions += parseFloat(campaign.impressions) || 0;
+                campaignTotals.clicks += parseFloat(campaign.clicks) || 0;
+                campaignTotals.leads += parseFloat(campaign.leads) || 0;
+            });
+            
+            // Calcular ratios para cada métrica
+            const ratios = {
+                spent: campaignTotals.spent > 0 ? dailyTotals.spent / campaignTotals.spent : 0,
+                impressions: campaignTotals.impressions > 0 ? dailyTotals.impressions / campaignTotals.impressions : 0,
+                clicks: campaignTotals.clicks > 0 ? dailyTotals.clicks / campaignTotals.clicks : 0,
+                leads: campaignTotals.leads > 0 ? dailyTotals.leads / campaignTotals.leads : 0
+            };
+            
+            // Aplicar ratios a cada campanha
+            return filtered.map((campaign: any) => ({
+                ...campaign,
+                spent: (parseFloat(campaign.spent) || 0) * ratios.spent,
+                impressions: (parseFloat(campaign.impressions) || 0) * ratios.impressions,
+                clicks: (parseFloat(campaign.clicks) || 0) * ratios.clicks,
+                leads: (parseFloat(campaign.leads) || 0) * ratios.leads,
+            }));
         }
         
-        return filtered;
-    }, [campaigns, selectedCampaignIds, selectedTableDate]);
+        // Se não houver dados diários para o período, retornar vazio
+        return [];
+    }, [campaigns, selectedCampaignIds, filteredPerformanceDataByDate]);
 
     const aggregatedTotals = useMemo(() => {
         const result = { spent: 0, impressions: 0, clicks: 0, leads: 0 };
         
-        // Se houver dados diários, somar todos eles
-        if (dailyPerformanceData && Array.isArray(dailyPerformanceData) && dailyPerformanceData.length > 0) {
-            dailyPerformanceData.forEach((d: any) => {
+        // Se houver dados diários filtrados por data, somar eles
+        if (filteredPerformanceDataByDate && Array.isArray(filteredPerformanceDataByDate) && filteredPerformanceDataByDate.length > 0) {
+            filteredPerformanceDataByDate.forEach((d: any) => {
                 result.spent += parseFloat(d.spend) || 0;
                 result.impressions += parseFloat(d.impressions) || 0;
                 result.clicks += parseFloat(d.clicks) || 0;
@@ -209,34 +180,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
         }
         
         return result;
-    }, [dailyPerformanceData, filteredCampaignTableData]);
+    }, [filteredPerformanceDataByDate, filteredCampaignTableData]);
 
     const chartData = useMemo(() => {
-        // Para Meta Ads, Google Ads e Visão Principal, usar dados diários passados via props
-        if ((view === 'meta' || view === 'google' || view === 'principal') && dailyPerformanceData && dailyPerformanceData.length > 0) {
-            const source = dailyPerformanceData[0]?._source || 'unknown';
-            console.log(`[Dashboard] chartData for ${view} (source: ${source}):`, dailyPerformanceData.length, 'days');
-            
-            // Se tem uma data selecionada, filtrar apenas aquele dia
-            if (selectedDailyDate) {
-                return dailyPerformanceData.filter((d: any) => d.date === selectedDailyDate);
-            }
-            
-            return dailyPerformanceData;
+        if ((view === 'meta' || view === 'google' || view === 'principal') && filteredPerformanceDataByDate && filteredPerformanceDataByDate.length > 0) {
+            return filteredPerformanceDataByDate;
         }
-        
-        // Outras plataformas: retornar array vazio até que sejam integradas
         return [];
-    }, [view, dailyPerformanceData, selectedDailyDate]);
+    }, [view, filteredPerformanceDataByDate]);
 
     const allCampaignsForFilter = useMemo(
-        () => campaigns.map(({ id, name }) => ({ id, name })), 
+        () => campaigns && campaigns.length > 0 ? campaigns.map(({ id, name }) => ({ id, name })) : [], 
         [campaigns]
     );
 
     const handleCampaignSelectionChange = (selectedIds: string[]) => {
         setSelectedCampaignIds(selectedIds);
     };
+
+    const handleDateRangeChange = (startDate: string, endDate: string) => {
+        setDateRange({ start: startDate, end: endDate });
+    };
+
+    const handleResetDateRange = () => {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 6);
+        setDateRange({
+            start: startDate.toISOString().split('T')[0],
+            end: endDate.toISOString().split('T')[0],
+        });
+    };
+
+    // Get today's date for max date validation
+    const todayDate = new Date().toISOString().split('T')[0];
+    
+    // Get available dates for the calendar
+    const availableDatesForCalendar = useMemo(() => {
+        if (!dailyPerformanceData || dailyPerformanceData.length === 0) return [];
+        return dailyPerformanceData.map((d: any) => d.date);
+    }, [dailyPerformanceData]);
     
     const formatCurrency = (value: number) => 
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -244,19 +227,73 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     const formatNumber = (value: number) =>
         new Intl.NumberFormat('pt-BR').format(value);
 
+    // Debug log
+    console.log('[Dashboard] Render - campaigns:', campaigns?.length || 0, 'dateRange:', dateRange);
+
     return (
         <div className="space-y-6">
             {/* Top Bar Controls */}
-            <div className="flex flex-wrap justify-between items-center gap-4 border-b border-border-light dark:border-border-dark pb-4">
-                <div className="flex flex-wrap items-center gap-4">
-                    <CampaignFilter 
-                        campaigns={allCampaignsForFilter}
-                        selectedCampaignIds={selectedCampaignIds}
-                        onSelectionChange={handleCampaignSelectionChange}
-                        disabled={isLoading || !!error}
-                    />
+            <div className="bg-card-light dark:bg-card-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
+                <div className="flex flex-wrap items-center gap-6">
+                    {/* Filtro de Campanhas */}
+                    <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                            Campanhas:
+                        </label>
+                        <CampaignFilter 
+                            campaigns={allCampaignsForFilter}
+                            selectedCampaignIds={selectedCampaignIds}
+                            onSelectionChange={handleCampaignSelectionChange}
+                            disabled={isLoading || !!error}
+                        />
+                    </div>
+
+                    {/* Filtro de Data */}
+                    <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                            Período:
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <DateFilterCalendar
+                                availableDates={availableDatesForCalendar}
+                                selectedDate={dateRange.start}
+                                onDateChange={(date) => {
+                                    if (date) {
+                                        handleDateRangeChange(date, dateRange.end);
+                                    }
+                                }}
+                                label=""
+                            />
+                            <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">até</span>
+                            <DateFilterCalendar
+                                availableDates={availableDatesForCalendar}
+                                selectedDate={dateRange.end}
+                                onDateChange={(date) => {
+                                    if (date) {
+                                        handleDateRangeChange(dateRange.start, date);
+                                    }
+                                }}
+                                label=""
+                            />
+                            <button
+                                onClick={handleResetDateRange}
+                                disabled={isLoading || !!error}
+                                className="px-3 py-2 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors h-10"
+                                title="Limpar período"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Status Messages */}
+                    {allCampaignsForFilter.length === 0 && !isLoading && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma campanha encontrada</p>
+                    )}
+                    {isLoading && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Carregando...</p>
+                    )}
                 </div>
-                 {/* Add date picker here later if needed */}
             </div>
             
             {/* 1. Problem Finder / Distortion Area (HERO) */}
@@ -277,14 +314,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                     </div>
                     
                     {/* Filtro de Data para Dados Diários */}
-                    {(view === 'meta' || view === 'google' || view === 'principal') && dailyPerformanceData && dailyPerformanceData.length > 0 && (
-                        <DateFilterCalendar
-                            availableDates={dailyPerformanceData.map((d: any) => d.date)}
-                            selectedDate={selectedDailyDate}
-                            onDateChange={setSelectedDailyDate}
-                            label="Filtrar dados diários:"
-                        />
-                    )}
+                    {console.log('[Dashboard] Renderizar filtro?', {
+                        view,
+                        hasDaily: !!dailyPerformanceData,
+                        dailyLength: dailyPerformanceData?.length || 0,
+                        shouldShow: (view === 'meta' || view === 'google' || view === 'principal') && dailyPerformanceData && dailyPerformanceData.length > 0
+                    })}
                     
                     {/* Main Chart */}
                      <div className="bg-card-light dark:bg-card-dark rounded-lg shadow-md border border-border-light dark:border-border-dark" style={{ height: '400px' }}>
@@ -300,22 +335,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                         isLoading={isInsightLoading}
                         error={insightError}
                         insights={allInsights}
+                        dateRange={dateRange}
+                        dailyPerformanceData={filteredPerformanceDataByDate}
                     />
                  </div>
             </div>
 
             {/* 3. Detailed Data */}
-            <div>
-                {/* Filtro de Data para Tabela */}
-                {(view === 'meta' || view === 'google' || view === 'principal') && availableTableDates && availableTableDates.length > 0 && (
-                    <DateFilterCalendar
-                        availableDates={availableTableDates}
-                        selectedDate={selectedTableDate}
-                        onDateChange={setSelectedTableDate}
-                        label="Filtrar tabela por data:"
-                    />
-                )}
-                <CampaignTable data={filteredCampaignTableData} isLoading={isLoading} error={error} />
+            <div className="space-y-4">
+                <CampaignTable data={filteredCampaignTableData} isLoading={isLoading} error={error} dateRange={dateRange} />
             </div>
         </div>
     );

@@ -67,6 +67,8 @@ const App: React.FC = () => {
         setError(null);
         setDailyPerformanceData([]); // Reset daily data when view changes
         
+        console.log('[App] loadInitialData called for view:', currentView);
+        
         try {
             let data: Campaign[] = [];
             
@@ -76,9 +78,13 @@ const App: React.FC = () => {
                     // @ts-ignore
                     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
                     
+                    console.log('[App] Loading PRINCIPAL view data');
+                    
                     // Buscar Google Ads
                     const googleResponse = await googleAdsService.getCampaigns();
                     const googleDailyResponse = await googleAdsService.getDailyPerformance();
+                    
+                    console.log('[App] googleDailyResponse:', googleDailyResponse);
                     
                     // Buscar Meta Ads
                     const metaResponse = await metaAdsService.getCampaigns();
@@ -86,6 +92,11 @@ const App: React.FC = () => {
                         credentials: 'include'
                     });
                     const metaDailyJson = await metaDailyResponse.json();
+                    
+                    console.log('[App] Loading consolidated data:', {
+                        googleDaily: googleDailyResponse,
+                        metaDaily: metaDailyJson
+                    });
                     
                     // Processar Google Ads
                     if (googleResponse.success && googleResponse.campaigns && googleResponse.campaigns.length > 0) {
@@ -126,13 +137,14 @@ const App: React.FC = () => {
                         let dateObj;
                         if (dateField) {
                             if (typeof dateField === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateField)) {
-                                dateObj = new Date(dateField + 'T00:00:00');
+                                // Já está em ISO, retorna direto
+                                return dateField.split('T')[0];
                             } else {
                                 dateObj = new Date(dateField);
                             }
                         }
                         return dateObj && !isNaN(dateObj.getTime()) 
-                            ? dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                            ? dateObj.toISOString().split('T')[0]
                             : String(dateField);
                     };
 
@@ -201,20 +213,14 @@ const App: React.FC = () => {
                     });
                     
                     const combinedDailyData = Array.from(dateMap.values()).sort((a, b) => {
-                        // Tentar parsear como data em formato pt-BR (dd/mm)
-                        const parseDate = (dateStr: string) => {
-                            const parts = dateStr.split('/');
-                            if (parts.length === 2) {
-                                return new Date(new Date().getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
-                            }
-                            return new Date(dateStr);
-                        };
-                        return parseDate(a.date).getTime() - parseDate(b.date).getTime();
+                        // Parsear datas em formato ISO (yyyy-MM-dd)
+                        return new Date(a.date).getTime() - new Date(b.date).getTime();
                     }).map((d: any) => ({
                         ...d,
                         _source: 'consolidated' // Marcar como dados consolidados
                     }));
-                    console.log('[App] Combined daily data for principal:', combinedDailyData.length, 'days', combinedDailyData.slice(0, 3));
+                    console.log('[App] Combined daily data for principal:', combinedDailyData.length, 'days', combinedDailyData);
+                    console.log('[App] Setting dailyPerformanceData for PRINCIPAL:', combinedDailyData.length, 'days');
                     setDailyPerformanceData(combinedDailyData);
                     
                 } catch (e) {
@@ -223,6 +229,8 @@ const App: React.FC = () => {
                 }
             } else if (currentView === 'meta') {
                 try {
+                    console.log('[App] Loading META view data');
+                    
                     // @ts-ignore
                     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
                     
@@ -235,17 +243,21 @@ const App: React.FC = () => {
                         credentials: 'include'
                     });
                     const dailyJson = await dailyResponse.json();
+                    console.log('[Meta Ads] Daily response:', dailyJson);
                     
                     if (dailyJson.success && dailyJson.data) {
-                        // Formatar dados diários para o gráfico
+                        // Formatar dados diários para o gráfico - manter em ISO para filtros
                         const formattedDaily = dailyJson.data.map((d: any) => ({
-                            date: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                            date: typeof d.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d.date) 
+                                ? d.date.split('T')[0]
+                                : new Date(d.date).toISOString().split('T')[0],
                             clicks: d.clicks,
                             leads: d.leads,
                             impressions: d.impressions,
                             conversions: d.leads,
                             spend: d.spend || d.investimento || d.gasto || 0
                         }));
+                        console.log('[App] Setting dailyPerformanceData for META:', formattedDaily.length, 'days');
                         setDailyPerformanceData(formattedDaily);
                     }
                     
@@ -306,6 +318,8 @@ const App: React.FC = () => {
                 }
             } else if (currentView === 'google') {
                 try {
+                    console.log('[App] Loading GOOGLE view data');
+                    
                     // Buscar dados do Google Ads do Supabase
                     const response = await googleAdsService.getCampaigns();
                     console.log('[Google Ads] Campaign response:', response);
@@ -314,27 +328,26 @@ const App: React.FC = () => {
                     console.log('[Google Ads] Daily response:', dailyResponse);
                     
                     if (dailyResponse.data) {
-                        // Formatar dados diários para o gráfico
+                        // Formatar dados diários para o gráfico - manter em ISO para filtros
                         const formattedDaily = dailyResponse.data.map((d: any) => {
                             // Tentar diferentes formas de parsear a data
-                            let dateObj;
                             const dateField = d.date || d.data; // Tenta 'date' ou 'data'
+                            
+                            let isoDate = '';
                             if (dateField) {
                                 // Se é uma string de data YYYY-MM-DD
                                 if (typeof dateField === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateField)) {
-                                    dateObj = new Date(dateField + 'T00:00:00');
+                                    isoDate = dateField.split('T')[0];
                                 } else {
-                                    dateObj = new Date(dateField);
+                                    const dateObj = new Date(dateField);
+                                    isoDate = dateObj && !isNaN(dateObj.getTime()) 
+                                        ? dateObj.toISOString().split('T')[0]
+                                        : dateField;
                                 }
                             }
                             
-                            // Formatar como DD/MM
-                            const formattedDate = dateObj && !isNaN(dateObj.getTime()) 
-                                ? dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-                                : dateField;
-                            
                             return {
-                                date: formattedDate,
+                                date: isoDate,
                                 clicks: parseFloat(d.clicks || d.cliques || 0),
                                 leads: parseFloat(d.leads || 0),
                                 impressions: parseFloat(d.impressions || d.impressoes || 0),

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import ptBR from 'date-fns/locale/pt-BR';
@@ -17,6 +17,21 @@ export const DateFilterCalendar: React.FC<DateFilterCalendarProps> = ({
   label
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Fechar calendário ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
 
   // Processar e validar datas disponíveis
   const availableDateObjects = useMemo(() => {
@@ -93,8 +108,14 @@ export const DateFilterCalendar: React.FC<DateFilterCalendarProps> = ({
     );
 
     if (matching) {
-      console.log('Data selecionada:', matching.originalStr);
-      onDateChange(matching.originalStr);
+      // Se clicar na mesma data já selecionada, limpar
+      if (selectedDate === matching.originalStr) {
+        console.log('Data desmarcada:', matching.originalStr);
+        onDateChange(null);
+      } else {
+        console.log('Data selecionada:', matching.originalStr);
+        onDateChange(matching.originalStr);
+      }
       setIsOpen(false);
     }
   };
@@ -111,7 +132,7 @@ export const DateFilterCalendar: React.FC<DateFilterCalendarProps> = ({
   }
 
   return (
-    <div className="flex items-center gap-3 p-4 bg-card-light dark:bg-card-dark rounded-lg border border-border-light dark:border-border-dark">
+    <div ref={containerRef} className="flex items-center gap-3 p-4 bg-card-light dark:bg-card-dark rounded-lg border border-border-light dark:border-border-dark">
       <label className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark whitespace-nowrap">
         {label}
       </label>
@@ -121,7 +142,7 @@ export const DateFilterCalendar: React.FC<DateFilterCalendarProps> = ({
           onClick={() => setIsOpen(!isOpen)}
           className="px-4 py-2 border border-primary-light dark:border-primary-dark rounded-lg bg-primary-light dark:bg-primary-dark text-white hover:opacity-90 transition-opacity font-medium"
         >
-          {selectedDateDisplay ? selectedDateDisplay : 'Selecionar data'}
+          {selectedDateDisplay || 'Selecionar data'}
           <span className="ml-2">📅</span>
         </button>
 
@@ -145,15 +166,6 @@ export const DateFilterCalendar: React.FC<DateFilterCalendarProps> = ({
           </div>
         )}
       </div>
-
-      {selectedDate && (
-        <button
-          onClick={() => onDateChange(null)}
-          className="px-3 py-2 text-sm bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/30 transition-colors font-medium"
-        >
-          Limpar
-        </button>
-      )}
     </div>
   );
 };
