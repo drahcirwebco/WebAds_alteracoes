@@ -64,6 +64,8 @@ export const metaAdsService = {
   // Get Facebook Ads campaigns from Supabase
   async getCampaignsSupabase() {
     try {
+      console.log('[Meta getCampaignsSupabase] Starting fetch');
+      
       const response = await fetch(
         `${SUPABASE_URL_META}/rest/v1/facebook-ads?select=*`,
         {
@@ -74,12 +76,17 @@ export const metaAdsService = {
         }
       );
 
+      console.log('[Meta getCampaignsSupabase] Response status:', response.status);
+
       if (!response.ok) {
         throw new Error(`Supabase error: ${response.status}`);
       }
 
       const data = await response.json();
       console.log('[Meta] Raw data from Supabase:', data[0]);
+      if (data[0]) {
+        console.log('[Meta] Campaign row keys:', Object.keys(data[0]));
+      }
 
       // Group campaigns by name (in case there are multiple rows per campaign)
       const campaignMap = new Map<string, any>();

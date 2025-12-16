@@ -310,10 +310,10 @@ const App: React.FC = () => {
                     console.log('[App] Loading GOOGLE view data');
                     
                     // Buscar dados do Google Ads do Supabase
-                    const response = await googleAdsService.getCampaigns();
+                    const response = await googleAdsService.getCampaignsSupabase();
                     console.log('[Google Ads] Campaign response:', response);
                     
-                    const dailyResponse = await googleAdsService.getDailyPerformance();
+                    const dailyResponse = await googleAdsService.getDailyPerformanceSupabase();
                     console.log('[Google Ads] Daily response:', dailyResponse);
                     
                     if (dailyResponse.data) {
