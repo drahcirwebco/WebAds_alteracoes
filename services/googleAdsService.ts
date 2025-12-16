@@ -75,6 +75,8 @@ export const googleAdsService = {
   // Get campaigns from Google Ads directly from Supabase (for production/Vercel)
   async getCampaignsSupabase() {
     try {
+      console.log('[Google getCampaignsSupabase] Starting fetch from:', `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_campaigns`);
+      
       const response = await fetch(
         `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_campaigns?select=*`,
         {
@@ -85,12 +87,21 @@ export const googleAdsService = {
         }
       );
 
+      console.log('[Google getCampaignsSupabase] Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`Supabase error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('[Google getCampaignsSupabase] Error response:', errorText);
+        throw new Error(`Supabase error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('[Google] Raw data from Supabase:', data[0]);
+      console.log('[Google] Raw data from Supabase:', data);
+      console.log('[Google] Data length:', data?.length);
+      
+      if (data && data.length > 0) {
+        console.log('[Google] Campaign row keys:', Object.keys(data[0]));
+      }
 
       // Transform to expected format
       const campaigns = (data || []).map((row: any) => ({
@@ -121,6 +132,8 @@ export const googleAdsService = {
   // Get daily performance data directly from Supabase (for production/Vercel)
   async getDailyPerformanceSupabase() {
     try {
+      console.log('[Google getDailyPerformanceSupabase] Starting fetch');
+      
       const response = await fetch(
         `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_daily?select=*&order=Date.asc`,
         {
@@ -131,16 +144,24 @@ export const googleAdsService = {
         }
       );
 
+      console.log('[Google getDailyPerformanceSupabase] Response status:', response.status);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Google getDailyPerformanceSupabase] Error:', errorText);
         throw new Error(`Supabase error: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('[Google] Daily data length:', data?.length);
+      if (data && data.length > 0) {
+        console.log('[Google] Daily row keys:', Object.keys(data[0]));
+      }
 
       // Transform data to daily performance format
       const dailyData = (data || []).map((row: any) => {
         let dateObj;
-        const dateField = row.Date || row.date;
+        const dateField = row.Date || row.date || row.data;
         if (dateField) {
           if (typeof dateField === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateField)) {
             dateObj = new Date(dateField + 'T00:00:00');
