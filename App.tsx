@@ -349,6 +349,7 @@ const App: React.FC = () => {
                     }
                     
                     if (response.success && response.campaigns && response.campaigns.length > 0) {
+                        console.log('[Google Ads] Found campaigns:', response.campaigns.length, response.campaigns.map((c: any) => c.name));
                         data = response.campaigns.map((campaign: any) => ({
                             id: campaign.id,
                             name: campaign.name,
@@ -362,7 +363,9 @@ const App: React.FC = () => {
                             cpa: campaign.metrics?.cpa || 0,
                         }));
                         console.log('[Google Ads] Mapped campaign data:', data);
+                        console.log('[App] About to set campaign data for Google');
                     } else {
+                        console.log('[Google Ads] No campaigns found. response.success:', response.success, 'campaigns length:', response.campaigns?.length);
                         setError("Nenhuma campanha encontrada no Google Ads.");
                         data = [];
                     }
