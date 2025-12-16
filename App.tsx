@@ -75,23 +75,18 @@ const App: React.FC = () => {
             if (currentView === 'principal') {
                 // Carregar dados consolidados de Google + Meta
                 try {
-                    // @ts-ignore
-                    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                    
                     console.log('[App] Loading PRINCIPAL view data');
                     
-                    // Buscar Google Ads
-                    const googleResponse = await googleAdsService.getCampaigns();
-                    const googleDailyResponse = await googleAdsService.getDailyPerformance();
+                    // Buscar Google Ads do Supabase
+                    const googleResponse = await googleAdsService.getCampaignsSupabase();
+                    const googleDailyResponse = await googleAdsService.getDailyPerformanceSupabase();
                     
                     console.log('[App] googleDailyResponse:', googleDailyResponse);
                     
-                    // Buscar Meta Ads
-                    const metaResponse = await metaAdsService.getCampaigns();
-                    const metaDailyResponse = await fetch(`${apiUrl}/campaigns/meta-ads/daily`, {
-                        credentials: 'include'
-                    });
-                    const metaDailyJson = await metaDailyResponse.json();
+                    // Buscar Meta Ads do Supabase
+                    const metaResponse = await metaAdsService.getCampaignsSupabase();
+                    const metaDailyResponse = await metaAdsService.getDailyPerformanceSupabase();
+                    const metaDailyJson = metaDailyResponse;
                     
                     console.log('[App] Loading consolidated data:', {
                         googleDaily: googleDailyResponse,
@@ -231,18 +226,12 @@ const App: React.FC = () => {
                 try {
                     console.log('[App] Loading META view data');
                     
-                    // @ts-ignore
-                    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                    
                     // Buscar campanhas do Supabase (facebook-ads table)
-                    const response = await metaAdsService.getCampaigns();
+                    const response = await metaAdsService.getCampaignsSupabase();
                     console.log('[DEBUG] Meta Ads response:', response);
                     
-                    // Buscar dados diários para o gráfico
-                    const dailyResponse = await fetch(`${apiUrl}/campaigns/meta-ads/daily`, {
-                        credentials: 'include'
-                    });
-                    const dailyJson = await dailyResponse.json();
+                    // Buscar dados diários para o gráfico do Supabase
+                    const dailyJson = await metaAdsService.getDailyPerformanceSupabase();
                     console.log('[Meta Ads] Daily response:', dailyJson);
                     
                     if (dailyJson.success && dailyJson.data) {

@@ -62,6 +62,64 @@ export const metaAdsService = {
   },
 
   // Get Facebook Ads campaigns from Supabase
+  async getCampaignsSupabase() {
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL_META}/rest/v1/facebook-ads?select=*`,
+        {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY_META,
+            'Accept': 'application/json',
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Supabase error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Group campaigns by name (in case there are multiple rows per campaign)
+      const campaignMap = new Map<string, any>();
+      
+      (data || []).forEach((row: any) => {
+        const campaignName = row.Nome_da_campanha || row.campaign_name || 'Unknown';
+        
+        if (!campaignMap.has(campaignName)) {
+          campaignMap.set(campaignName, {
+            id: `meta-${row.id || campaignName}`,
+            name: campaignName,
+            platform: 'Facebook Ads',
+            status: 'active',
+            metrics: {
+              impressions: 0,
+              clicks: 0,
+              spend: 0,
+              conversions: 0,
+              leads: 0
+            }
+          });
+        }
+        
+        const campaign = campaignMap.get(campaignName);
+        campaign.metrics.clicks += parseFloat(row.Cliques || row.clicks || 0);
+        campaign.metrics.leads += parseFloat(row.leads || 0);
+        campaign.metrics.impressions += parseFloat(row.Impressoes || row.impressions || 0);
+        campaign.metrics.spend += parseFloat(row['Valor investido'] || row.spend || 0);
+      });
+
+      return {
+        success: true,
+        campaigns: Array.from(campaignMap.values())
+      };
+    } catch (error) {
+      console.error('Error fetching Meta Ads campaigns from Supabase:', error);
+      throw error;
+    }
+  },
+
+  // Get Facebook Ads campaigns from API (legacy)
   async getCampaigns() {
     try {
       const response = await fetch(`${API_BASE_URL}/campaigns/meta-ads`, {
