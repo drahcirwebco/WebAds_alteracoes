@@ -135,11 +135,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
             });
             
             // Calcular ratios para cada métrica
+            // Se não houver dados diários para uma métrica, usar ratio de 1 (mantém o valor original)
             const ratios = {
-                spent: campaignTotals.spent > 0 ? dailyTotals.spent / campaignTotals.spent : 0,
-                impressions: campaignTotals.impressions > 0 ? dailyTotals.impressions / campaignTotals.impressions : 0,
-                clicks: campaignTotals.clicks > 0 ? dailyTotals.clicks / campaignTotals.clicks : 0,
-                leads: campaignTotals.leads > 0 ? dailyTotals.leads / campaignTotals.leads : 0
+                spent: campaignTotals.spent > 0 && dailyTotals.spent > 0 ? dailyTotals.spent / campaignTotals.spent : 1,
+                impressions: campaignTotals.impressions > 0 && dailyTotals.impressions > 0 ? dailyTotals.impressions / campaignTotals.impressions : 1,
+                clicks: campaignTotals.clicks > 0 && dailyTotals.clicks > 0 ? dailyTotals.clicks / campaignTotals.clicks : 1,
+                leads: campaignTotals.leads > 0 && dailyTotals.leads > 0 ? dailyTotals.leads / campaignTotals.leads : 1
             };
             
             // Aplicar ratios a cada campanha
