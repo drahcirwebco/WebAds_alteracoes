@@ -128,7 +128,7 @@ export const googleAdsService = {
         
         const campaign = campaignMap.get(campaignName);
         campaign.metrics.clicks += parseFloat(row.cliques || row.Clicks || row.clicks || 0);
-        campaign.metrics.leads += parseFloat(row.Leads || row.leads || 0);
+        campaign.metrics.leads += parseFloat(row.conversoes || row.Conversions || row.conversions || row.Leads || row.leads || 0);
         campaign.metrics.impressions += parseFloat(row.impressoes || row.Impressions || row.impressions || 0);
         campaign.metrics.conversions += parseFloat(row.conversoes || row.Conversions || row.conversions || 0);
         campaign.metrics.spend += parseFloat(row.custo || row.Cost || row.spend || row.cost || 0);
