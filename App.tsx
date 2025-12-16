@@ -350,7 +350,8 @@ const App: React.FC = () => {
                     
                     if (response.success && response.campaigns && response.campaigns.length > 0) {
                         console.log('[Google Ads] Found campaigns:', response.campaigns.length, response.campaigns.map((c: any) => c.name));
-                        data = response.campaigns.map((campaign: any) => {
+                        // Apenas campanhas do Google, excluir qualquer coisa de Meta
+                        data = response.campaigns.filter((campaign: any) => campaign.id.startsWith('google-')).map((campaign: any) => {
                             console.log('[Google Ads Map] Campaign:', campaign);
                             return {
                                 id: campaign.id,
