@@ -171,7 +171,8 @@ export const googleAdsService = {
     }
   },
 
-  
+  // Get campaigns from API
+  async getCampaigns() {
     try {
       const response = await fetch(`${API_BASE_URL}/campaigns/google-ads`, {
         credentials: 'include'
