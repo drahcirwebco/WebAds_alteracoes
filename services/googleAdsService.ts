@@ -90,11 +90,12 @@ export const googleAdsService = {
       }
 
       const data = await response.json();
+      console.log('[Google] Raw data from Supabase:', data[0]);
 
       // Transform to expected format
       const campaigns = (data || []).map((row: any) => ({
         id: `google-${row.id}`,
-        name: row.Campaign || row.campaign_name || 'Unknown Campaign',
+        name: row.Campaign || row.campaign || row.campaign_name || row.name || 'Unknown Campaign',
         platform: 'Google Ads',
         status: row.status || 'active',
         metrics: {

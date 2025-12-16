@@ -79,12 +79,13 @@ export const metaAdsService = {
       }
 
       const data = await response.json();
+      console.log('[Meta] Raw data from Supabase:', data[0]);
 
       // Group campaigns by name (in case there are multiple rows per campaign)
       const campaignMap = new Map<string, any>();
       
       (data || []).forEach((row: any) => {
-        const campaignName = row.Nome_da_campanha || row.campaign_name || 'Unknown';
+        const campaignName = row.Nome_da_campanha || row.nome_da_campanha || row.campaign_name || row.name || 'Unknown';
         
         if (!campaignMap.has(campaignName)) {
           campaignMap.set(campaignName, {
