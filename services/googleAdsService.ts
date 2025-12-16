@@ -170,7 +170,7 @@ export const googleAdsService = {
           }
         }
         const formattedDate = dateObj && !isNaN(dateObj.getTime()) 
-          ? dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+          ? dateObj.toISOString().split('T')[0]
           : String(dateField);
 
         return {
