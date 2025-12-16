@@ -35,13 +35,14 @@ export const metaAdsService = {
             clicks: 0,
             leads: 0,
             impressions: 0,
+            conversions: 0,
             spend: 0
           };
         }
         
         dailyData[date].clicks += parseFloat(row.Cliques) || 0;
-        dailyData[date].leads += parseFloat(row.Leads) || 0;
         dailyData[date].impressions += parseFloat(row.Impressoes) || 0;
+        dailyData[date].conversions += parseFloat(row.Leads) || parseFloat(row.conversoes) || 0;
         dailyData[date].spend += parseFloat(row['Valor investido']) || 0;
       });
 
@@ -104,7 +105,7 @@ export const metaAdsService = {
         
         const campaign = campaignMap.get(campaignName);
         campaign.metrics.clicks += parseFloat(row.Cliques || row.clicks || 0);
-        campaign.metrics.leads += parseFloat(row.leads || 0);
+        campaign.metrics.leads += parseFloat(row.Leads || row.leads || 0);
         campaign.metrics.impressions += parseFloat(row.Impressoes || row.impressions || 0);
         campaign.metrics.spend += parseFloat(row['Valor investido'] || row.spend || 0);
       });
