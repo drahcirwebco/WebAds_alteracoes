@@ -387,6 +387,7 @@ const App: React.FC = () => {
                 data = [];
             }
 
+            console.log('[App] About to setCampaignData with:', data);
             setCampaignData(data);
         } catch (error: any) {
             setError(error.message || 'Falha ao carregar os dados das campanhas.');
