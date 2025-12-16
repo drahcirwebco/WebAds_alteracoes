@@ -96,7 +96,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     );
 
     const filteredCampaignTableData = useMemo(() => {
-        // Se houver dados diários filtrados por data, usar apenas esses dados
+        // Filtrar campanhas selecionadas
+        let filtered = campaigns;
+        if (selectedCampaignIds.length > 0) {
+            filtered = filtered.filter(campaign => selectedCampaignIds.includes(campaign.id));
+        }
+        
+        // Se houver dados diários filtrados por data, usar ratios para calcular dados do período
         if (filteredPerformanceDataByDate && Array.isArray(filteredPerformanceDataByDate) && filteredPerformanceDataByDate.length > 0) {
             // Calcular totais agregados dos dados diários por período
             const dailyTotals = {
@@ -120,16 +126,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                 clicks: 0,
                 leads: 0
             };
-            
-            console.log('[Dashboard] Campaigns received:', campaigns.length, campaigns.map((c: any) => ({ name: c.name, spent: c.spent })));
-            console.log('[Dashboard] Selected campaign IDs:', selectedCampaignIds);
-            
-            let filtered = campaigns;
-            if (selectedCampaignIds.length > 0) {
-                filtered = filtered.filter(campaign => selectedCampaignIds.includes(campaign.id));
-            }
-            
-            console.log('[Dashboard] Filtered campaigns:', filtered.length, filtered.map((c: any) => ({ name: c.name, spent: c.spent })));
             
             filtered.forEach((campaign: any) => {
                 campaignTotals.spent += parseFloat(campaign.spent) || 0;
@@ -156,8 +152,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
             }));
         }
         
-        // Se não houver dados diários para o período, retornar vazio
-        return [];
+        // Se não houver dados diários, mostrar os dados das campanhas filtradas como estão
+        return filtered;
     }, [campaigns, selectedCampaignIds, filteredPerformanceDataByDate]);
 
     const aggregatedTotals = useMemo(() => {
@@ -232,9 +228,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
   
     const formatNumber = (value: number) =>
         new Intl.NumberFormat('pt-BR').format(value);
-
-    // Debug log
-    console.log('[Dashboard] Render - campaigns:', campaigns?.length || 0, 'dateRange:', dateRange);
 
     return (
         <div className="space-y-6">

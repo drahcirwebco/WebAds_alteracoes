@@ -67,31 +67,20 @@ const App: React.FC = () => {
         setError(null);
         setDailyPerformanceData([]); // Reset daily data when view changes
         
-        console.log('[App] loadInitialData called for view:', currentView);
-        
         try {
             let data: Campaign[] = [];
             
             if (currentView === 'principal') {
                 // Carregar dados consolidados de Google + Meta
                 try {
-                    console.log('[App] Loading PRINCIPAL view data');
-                    
                     // Buscar Google Ads do Supabase
                     const googleResponse = await googleAdsService.getCampaignsSupabase();
                     const googleDailyResponse = await googleAdsService.getDailyPerformanceSupabase();
-                    
-                    console.log('[App] googleDailyResponse:', googleDailyResponse);
                     
                     // Buscar Meta Ads do Supabase
                     const metaResponse = await metaAdsService.getCampaignsSupabase();
                     const metaDailyResponse = await metaAdsService.getDailyPerformanceSupabase();
                     const metaDailyJson = metaDailyResponse;
-                    
-                    console.log('[App] Loading consolidated data:', {
-                        googleDaily: googleDailyResponse,
-                        metaDaily: metaDailyJson
-                    });
                     
                     // Processar Google Ads
                     if (googleResponse.success && googleResponse.campaigns && googleResponse.campaigns.length > 0) {
@@ -214,25 +203,19 @@ const App: React.FC = () => {
                         ...d,
                         _source: 'consolidated' // Marcar como dados consolidados
                     }));
-                    console.log('[App] Combined daily data for principal:', combinedDailyData.length, 'days', combinedDailyData);
-                    console.log('[App] Setting dailyPerformanceData for PRINCIPAL:', combinedDailyData.length, 'days');
                     setDailyPerformanceData(combinedDailyData);
                     
                 } catch (e) {
-                    console.error("Error loading consolidated data:", e);
+
                     setError("Erro ao carregar dados consolidados das plataformas.");
                 }
             } else if (currentView === 'meta') {
                 try {
-                    console.log('[App] Loading META view data');
-                    
                     // Buscar campanhas do Supabase (facebook-ads table)
                     const response = await metaAdsService.getCampaignsSupabase();
-                    console.log('[DEBUG] Meta Ads response:', response);
                     
                     // Buscar dados diários para o gráfico do Supabase
                     const dailyJson = await metaAdsService.getDailyPerformanceSupabase();
-                    console.log('[Meta Ads] Daily response:', dailyJson);
                     
                     if (dailyJson.success && dailyJson.data) {
                         // Formatar dados diários para o gráfico - manter em ISO para filtros
@@ -246,7 +229,6 @@ const App: React.FC = () => {
                             conversions: d.leads,
                             spend: d.spend || d.investimento || d.gasto || 0
                         }));
-                        console.log('[App] Setting dailyPerformanceData for META:', formattedDaily.length, 'days');
                         setDailyPerformanceData(formattedDaily);
                     }
                     
@@ -301,20 +283,16 @@ const App: React.FC = () => {
                         data = [];
                     }
                 } catch (e) {
-                    console.error("Meta Ads fetch error:", e);
+
                     setError("Erro ao buscar dados do Meta Ads do Supabase.");
                     data = [];
                 }
             } else if (currentView === 'google') {
                 try {
-                    console.log('[App] Loading GOOGLE view data');
-                    
                     // Buscar dados do Google Ads do Supabase
                     const response = await googleAdsService.getCampaignsSupabase();
-                    console.log('[Google Ads] Campaign response:', response);
                     
                     const dailyResponse = await googleAdsService.getDailyPerformanceSupabase();
-                    console.log('[Google Ads] Daily response:', dailyResponse);
                     
                     if (dailyResponse.data) {
                         // Formatar dados diários para o gráfico - manter em ISO para filtros
@@ -345,14 +323,10 @@ const App: React.FC = () => {
                             };
                         });
                         setDailyPerformanceData(formattedDaily);
-                        console.log('[Google Ads] Formatted daily data:', formattedDaily);
                     }
                     
                     if (response.success && response.campaigns && response.campaigns.length > 0) {
-                        console.log('[Google Ads] Found campaigns:', response.campaigns.length, response.campaigns.map((c: any) => c.name));
-                        data = response.campaigns.map((campaign: any) => {
-                            console.log('[Google Ads Map] Campaign:', campaign);
-                            return {
+                        data = response.campaigns.map((campaign: any) => ({
                                 id: campaign.id,
                                 name: campaign.name,
                                 platform: campaign.platform || 'Google Ads',
@@ -363,17 +337,13 @@ const App: React.FC = () => {
                                 conversions: campaign.metrics?.conversions || 0,
                                 leads: campaign.metrics?.leads || 0,
                                 cpa: campaign.metrics?.cpa || 0,
-                            };
-                        });
-                        console.log('[Google Ads] Mapped campaign data:', data);
-                        console.log('[App] About to set campaign data for Google');
+                            }));
                     } else {
-                        console.log('[Google Ads] No campaigns found. response.success:', response.success, 'campaigns length:', response.campaigns?.length);
                         setError("Nenhuma campanha encontrada no Google Ads.");
                         data = [];
                     }
                 } catch (e) {
-                    console.error("Google Ads fetch error:", e);
+
                     setError("Erro ao buscar dados do Google Ads do Supabase.");
                     data = [];
                 }
@@ -387,7 +357,6 @@ const App: React.FC = () => {
                 data = [];
             }
 
-            console.log('[App] About to setCampaignData with:', data);
             setCampaignData(data);
         } catch (error: any) {
             setError(error.message || 'Falha ao carregar os dados das campanhas.');
