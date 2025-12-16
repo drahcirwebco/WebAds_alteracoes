@@ -75,10 +75,10 @@ export const googleAdsService = {
   // Get campaigns from Google Ads directly from Supabase (for production/Vercel)
   async getCampaignsSupabase() {
     try {
-      console.log('[Google getCampaignsSupabase] Starting fetch from:', `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_campaigns`);
+      console.log('[Google getCampaignsSupabase] Starting fetch from:', `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_dadosDiarios`);
       
       const response = await fetch(
-        `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_campaigns?select=*`,
+        `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_dadosDiarios?select=*`,
         {
           headers: {
             'apikey': SUPABASE_ANON_KEY_GOOGLE,
