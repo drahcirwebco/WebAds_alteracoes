@@ -121,10 +121,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                 leads: 0
             };
             
+            console.log('[Dashboard] Campaigns received:', campaigns.length, campaigns.map((c: any) => ({ name: c.name, spent: c.spent })));
+            console.log('[Dashboard] Selected campaign IDs:', selectedCampaignIds);
+            
             let filtered = campaigns;
             if (selectedCampaignIds.length > 0) {
                 filtered = filtered.filter(campaign => selectedCampaignIds.includes(campaign.id));
             }
+            
+            console.log('[Dashboard] Filtered campaigns:', filtered.length, filtered.map((c: any) => ({ name: c.name, spent: c.spent })));
             
             filtered.forEach((campaign: any) => {
                 campaignTotals.spent += parseFloat(campaign.spent) || 0;
