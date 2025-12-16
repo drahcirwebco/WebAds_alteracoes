@@ -106,16 +106,16 @@ export const googleAdsService = {
       // Transform to expected format
       const campaigns = (data || []).map((row: any) => ({
         id: `google-${row.id}`,
-        name: row.Campaign || row.campaign || row.campaign_name || row.name || 'Unknown Campaign',
+        name: row.campanha || row.Campaign || row.campaign || row.campaign_name || row.name || 'Unknown Campaign',
         platform: 'Google Ads',
         status: row.status || 'active',
         metrics: {
-          impressions: parseFloat(row.Impressions || row.impressions || 0),
-          clicks: parseFloat(row.Clicks || row.clicks || 0),
-          spend: parseFloat(row.Cost || row.spend || row.cost || 0),
-          conversions: parseFloat(row.Conversions || row.conversions || 0),
+          impressions: parseFloat(row.impressoes || row.Impressions || row.impressions || 0),
+          clicks: parseFloat(row.cliques || row.Clicks || row.clicks || 0),
+          spend: parseFloat(row.custo || row.Cost || row.spend || row.cost || 0),
+          conversions: parseFloat(row.conversoes || row.Conversions || row.conversions || 0),
           leads: parseFloat(row.Leads || row.leads || 0),
-          cpa: parseFloat(row.CPA || row.cpa || 0)
+          cpa: parseFloat(row.cpa || row.CPA || row.cpa || 0)
         }
       }));
 
@@ -135,7 +135,7 @@ export const googleAdsService = {
       console.log('[Google getDailyPerformanceSupabase] Starting fetch');
       
       const response = await fetch(
-        `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_dadosDiarios?select=*&order=Date.asc`,
+        `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_dadosDiarios?select=*&order=data.asc`,
         {
           headers: {
             'apikey': SUPABASE_ANON_KEY_GOOGLE,
@@ -161,7 +161,7 @@ export const googleAdsService = {
       // Transform data to daily performance format
       const dailyData = (data || []).map((row: any) => {
         let dateObj;
-        const dateField = row.Date || row.date || row.data;
+        const dateField = row.data || row.Date || row.date;
         if (dateField) {
           if (typeof dateField === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateField)) {
             dateObj = new Date(dateField + 'T00:00:00');
@@ -175,11 +175,11 @@ export const googleAdsService = {
 
         return {
           date: formattedDate,
-          clicks: parseFloat(row.Clicks || row.clicks || 0),
+          clicks: parseFloat(row.cliques || row.Clicks || row.clicks || 0),
           leads: parseFloat(row.Leads || row.leads || 0),
-          impressions: parseFloat(row.Impressions || row.impressions || 0),
-          conversions: parseFloat(row.Conversions || row.conversions || 0),
-          spend: parseFloat(row.Cost || row.spend || row.cost || 0)
+          impressions: parseFloat(row.impressoes || row.Impressions || row.impressions || 0),
+          conversions: parseFloat(row.conversoes || row.Conversions || row.conversions || 0),
+          spend: parseFloat(row.custo || row.Cost || row.spend || row.cost || 0)
         };
       });
 
