@@ -135,7 +135,7 @@ export const googleAdsService = {
       console.log('[Google getDailyPerformanceSupabase] Starting fetch');
       
       const response = await fetch(
-        `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_daily?select=*&order=Date.asc`,
+        `${SUPABASE_URL_GOOGLE}/rest/v1/Gallant_dadosDiarios?select=*&order=Date.asc`,
         {
           headers: {
             'apikey': SUPABASE_ANON_KEY_GOOGLE,
