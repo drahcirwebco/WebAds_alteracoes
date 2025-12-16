@@ -92,7 +92,7 @@ const TableSkeleton: React.FC = () => (
 );
 
 export const CampaignTable: React.FC<CampaignTableProps> = ({ data, isLoading, error, dateRange }) => {
-  console.log('[CampaignTable] Recebeu dados:', data.length, 'isLoading:', isLoading, 'error:', error);
+  console.log('[CampaignTable] Recebeu dados:', data?.length, 'data:', data, 'isLoading:', isLoading, 'error:', error);
   
   const formatDateDisplay = (dateStr: string): string => {
     const [year, month, day] = dateStr.split('-');
