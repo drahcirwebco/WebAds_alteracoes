@@ -40,7 +40,7 @@ export const metaAdsService = {
         }
         
         dailyData[date].clicks += parseFloat(row.Cliques) || 0;
-        dailyData[date].leads += parseFloat(row.leads) || 0;
+        dailyData[date].leads += parseFloat(row.Leads) || 0;
         dailyData[date].impressions += parseFloat(row.Impressoes) || 0;
         dailyData[date].spend += parseFloat(row['Valor investido']) || 0;
       });
