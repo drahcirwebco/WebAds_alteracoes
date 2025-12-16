@@ -350,18 +350,21 @@ const App: React.FC = () => {
                     
                     if (response.success && response.campaigns && response.campaigns.length > 0) {
                         console.log('[Google Ads] Found campaigns:', response.campaigns.length, response.campaigns.map((c: any) => c.name));
-                        data = response.campaigns.map((campaign: any) => ({
-                            id: campaign.id,
-                            name: campaign.name,
-                            platform: campaign.platform || 'Google Ads',
-                            status: campaign.status || 'active',
-                            impressions: campaign.metrics?.impressions || 0,
-                            clicks: campaign.metrics?.clicks || 0,
-                            spent: campaign.metrics?.spend || 0,
-                            conversions: campaign.metrics?.conversions || 0,
-                            leads: campaign.metrics?.leads || 0,
-                            cpa: campaign.metrics?.cpa || 0,
-                        }));
+                        data = response.campaigns.map((campaign: any) => {
+                            console.log('[Google Ads Map] Campaign:', campaign);
+                            return {
+                                id: campaign.id,
+                                name: campaign.name,
+                                platform: campaign.platform || 'Google Ads',
+                                status: campaign.status || 'active',
+                                impressions: campaign.metrics?.impressions || 0,
+                                clicks: campaign.metrics?.clicks || 0,
+                                spent: campaign.metrics?.spend || 0,
+                                conversions: campaign.metrics?.conversions || 0,
+                                leads: campaign.metrics?.leads || 0,
+                                cpa: campaign.metrics?.cpa || 0,
+                            };
+                        });
                         console.log('[Google Ads] Mapped campaign data:', data);
                         console.log('[App] About to set campaign data for Google');
                     } else {
