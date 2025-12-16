@@ -103,21 +103,40 @@ export const googleAdsService = {
         console.log('[Google] Campaign row keys:', Object.keys(data[0]));
       }
 
-      // Transform to expected format
-      const campaigns = (data || []).map((row: any) => ({
-        id: `google-${row.id}`,
-        name: row.campanha || row.Campaign || row.campaign || row.campaign_name || row.name || 'Unknown Campaign',
-        platform: 'Google Ads',
-        status: row.status || 'active',
-        metrics: {
-          impressions: parseFloat(row.impressoes || row.Impressions || row.impressions || 0),
-          clicks: parseFloat(row.cliques || row.Clicks || row.clicks || 0),
-          spend: parseFloat(row.custo || row.Cost || row.spend || row.cost || 0),
-          conversions: parseFloat(row.conversoes || row.Conversions || row.conversions || 0),
-          leads: parseFloat(row.Leads || row.leads || 0),
-          cpa: parseFloat(row.cpa || row.CPA || row.cpa || 0)
+      // Group campaigns by name (in case there are multiple rows per campaign)
+      const campaignMap = new Map<string, any>();
+      
+      (data || []).forEach((row: any) => {
+        const campaignName = row.campanha || row.Campaign || row.campaign || row.campaign_name || row.name || 'Unknown';
+        
+        if (!campaignMap.has(campaignName)) {
+          campaignMap.set(campaignName, {
+            id: `google-${row.id || campaignName}`,
+            name: campaignName,
+            platform: 'Google Ads',
+            status: row.status || 'active',
+            metrics: {
+              impressions: 0,
+              clicks: 0,
+              spend: 0,
+              conversions: 0,
+              leads: 0,
+              cpa: 0
+            }
+          });
         }
-      }));
+        
+        const campaign = campaignMap.get(campaignName);
+        campaign.metrics.clicks += parseFloat(row.cliques || row.Clicks || row.clicks || 0);
+        campaign.metrics.leads += parseFloat(row.Leads || row.leads || 0);
+        campaign.metrics.impressions += parseFloat(row.impressoes || row.Impressions || row.impressions || 0);
+        campaign.metrics.conversions += parseFloat(row.conversoes || row.Conversions || row.conversions || 0);
+        campaign.metrics.spend += parseFloat(row.custo || row.Cost || row.spend || row.cost || 0);
+        campaign.metrics.cpa = campaign.metrics.spend / campaign.metrics.leads;
+      });
+
+      // Transform to expected format
+      const campaigns = Array.from(campaignMap.values());
 
       return {
         success: true,
