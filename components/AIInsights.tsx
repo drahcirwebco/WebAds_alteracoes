@@ -11,6 +11,8 @@ interface AIInsightsProps {
   isLoading: boolean;
   error: string | null;
   insights?: string[];
+  dateRange?: { start: string; end: string };
+  dailyPerformanceData?: any[];
 }
 
 const SparklesIcon: React.FC<{className?: string}> = ({ className }) => (
@@ -30,7 +32,7 @@ const LoadingSkeleton: React.FC = () => (
 );
 
 
-export const AIInsights: React.FC<AIInsightsProps> = ({ selectedCampaignIds, allCampaigns, isLoading, error, insights = [] }) => {
+export const AIInsights: React.FC<AIInsightsProps> = ({ selectedCampaignIds, allCampaigns, isLoading, error, insights = [], dateRange, dailyPerformanceData = [] }) => {
     const insightsToDisplay = useMemo(() => {
         // Use the insights passed from Dashboard
         if (!insights || insights.length === 0) {
@@ -64,7 +66,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ selectedCampaignIds, all
         });
         
         return relevantInsights;
-    }, [selectedCampaignIds, allCampaigns, insights]);
+    }, [selectedCampaignIds, allCampaigns, insights, dateRange, dailyPerformanceData]);
 
 
     const renderContent = () => {

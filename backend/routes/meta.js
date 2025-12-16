@@ -152,4 +152,124 @@ router.get('/campaigns/meta-ads/status', async (req, res) => {
   }
 });
 
+// Get available dates from Meta Ads
+router.get('/dates/meta-ads', async (req, res) => {
+  try {
+    console.log('[Meta Ads] Fetching available dates from facebook-ads...');
+    const client = supabaseAdmin || supabase;
+    
+    const { data, error } = await client
+      .from('facebook-ads')
+      .select('Data_inicio');
+
+    if (error) {
+      console.error('[Meta Ads] Error fetching dates:', error);
+      return res.status(500).json({ error: 'Failed to fetch dates', details: error.message });
+    }
+
+    // Extrair datas únicas - manter em formato ISO (yyyy-MM-dd)
+    const uniqueDates = [...new Set(
+      (data || [])
+        .map(row => {
+          const dateStr = row.Data_inicio;
+          if (!dateStr) return null;
+          
+          // Se já está em ISO, retorna direto
+          if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+            return dateStr.split('T')[0]; // Remove hora se houver
+          }
+          return null;
+        })
+        .filter(date => date !== null)
+    )].sort();
+
+    console.log(`[Meta Ads] Found ${uniqueDates.length} unique dates`);
+
+    res.json({
+      success: true,
+      dates: uniqueDates
+    });
+  } catch (error) {
+    console.error('Error in /dates/meta-ads:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// Get Meta Ads campaign data for a specific date
+router.get('/campaigns/meta-ads/by-date/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    const client = supabaseAdmin || supabase;
+    
+    console.log(`[Meta Ads By Date] Fetching campaign data for date: ${date}`);
+    
+    // Tentar buscar com a coluna Data_inicio
+    let result = await client
+      .from('facebook-ads')
+      .select('*')
+      .eq('Data_inicio', date);
+
+    let data = result.data;
+    let error = result.error;
+    
+    // Se nenhum resultado, tentar com outras possíveis colunas de data
+    if ((data?.length || 0) === 0 && !error) {
+      console.log(`[Meta Ads By Date] No results with 'Data_inicio', trying other formats...`);
+      
+      // Tentar buscar todos e depois filtrar em memória
+      const allResult = await client.from('facebook-ads').select('*');
+      if (!allResult.error && allResult.data) {
+        data = allResult.data.filter((row) => {
+          const rowDate = row.Data_inicio || row.data_inicio || row.date || row.Date || '';
+          return rowDate === date;
+        });
+        console.log(`[Meta Ads By Date] Found ${data?.length || 0} records after filtering in memory`);
+        
+        // Log das colunas disponíveis
+        if (allResult.data.length > 0) {
+          console.log('[Meta Ads By Date] Available columns:', Object.keys(allResult.data[0]));
+        }
+      }
+    } else if (error) {
+      console.error('[Meta Ads By Date] Error fetching date data:', error);
+      return res.status(500).json({ error: 'Failed to fetch data for date', details: error.message });
+    }
+
+    console.log(`[Meta Ads By Date] Total records found: ${data?.length || 0}`);
+
+    // Transformar em formato de campanha
+    const campaigns = (data || []).map((row) => {
+      const campaignName = row.Nome_da_Campanha || row.nome_da_campanha || row.name || 'Unknown';
+      const spent = parseFloat(row.Gasto || row.gasto || row.investimento || 0) || 0;
+      const clicks = parseFloat(row.Cliques || row.cliques || 0) || 0;
+      const leads = parseFloat(row.Leads || row.leads || 0) || 0;
+      
+      return {
+        id: `meta-${date}-${campaignName.replace(/\s+/g, '-')}`,
+        name: campaignName,
+        spent: spent,
+        impressions: parseFloat(row.Impressoes || row.impressoes || 0) || 0,
+        clicks: clicks,
+        conversions: parseFloat(row.Conversoes || row.conversoes || 0) || 0,
+        leads: leads,
+        cpc: clicks > 0 ? spent / clicks : 0,
+        cpa: leads > 0 ? spent / leads : 0,
+        platform: 'Meta Ads',
+        date: date
+      };
+    });
+
+    console.log(`[Meta Ads By Date] Returning ${campaigns.length} campaigns`);
+
+    res.json({
+      success: true,
+      date: date,
+      campaigns: campaigns
+    });
+  } catch (error) {
+    console.error('Error in /campaigns/meta-ads/by-date:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 export default router;

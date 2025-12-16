@@ -7,6 +7,7 @@ interface CampaignTableProps {
   data: Campaign[];
   isLoading: boolean;
   error: string | null;
+  dateRange?: { start: string; end: string };
 }
 
 const formatNumber = (value: number) => new Intl.NumberFormat('pt-BR').format(value);
@@ -90,7 +91,18 @@ const TableSkeleton: React.FC = () => (
     </>
 );
 
-export const CampaignTable: React.FC<CampaignTableProps> = ({ data, isLoading, error }) => {
+export const CampaignTable: React.FC<CampaignTableProps> = ({ data, isLoading, error, dateRange }) => {
+  console.log('[CampaignTable] Recebeu dados:', data.length, 'isLoading:', isLoading, 'error:', error);
+  
+  const formatDateDisplay = (dateStr: string): string => {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}`;
+  };
+  
+  const dateRangeDisplay = dateRange 
+    ? `${formatDateDisplay(dateRange.start)} - ${formatDateDisplay(dateRange.end)}/${new Date(dateRange.end).getFullYear()}`
+    : '';
+  
   const renderTableContent = () => {
     if (isLoading) {
       return <TableSkeleton />;
@@ -108,6 +120,7 @@ export const CampaignTable: React.FC<CampaignTableProps> = ({ data, isLoading, e
     }
     
     if (!data || data.length === 0) {
+      console.log('[CampaignTable] Sem dados para exibir');
       return (
         <tr>
           <td colSpan={8} className="text-center py-10 px-6 text-text-secondary-light dark:text-text-secondary-dark">
@@ -182,7 +195,14 @@ export const CampaignTable: React.FC<CampaignTableProps> = ({ data, isLoading, e
 
   return (
     <div className="bg-card-light dark:bg-card-dark p-4 sm:p-6 rounded-lg shadow-md border border-border-light dark:border-border-dark">
-      <h3 className="text-lg font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Detalhes das Campanhas</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Detalhes das Campanhas</h3>
+        {dateRangeDisplay && (
+          <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark bg-background-light dark:bg-background-dark px-3 py-1 rounded-lg">
+            Período: {dateRangeDisplay}
+          </span>
+        )}
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-border-light dark:divide-border-dark">
           <thead className="bg-background-light dark:bg-background-dark">

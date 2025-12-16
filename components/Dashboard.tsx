@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Campaign, ChartDataPoint } from '../types';
 import { MetricCard } from './MetricCard';
 import { CampaignPerformanceChart } from './CampaignPerformanceChart';
@@ -6,17 +6,8 @@ import { AIInsights } from './AIInsights';
 import { CampaignTable } from './CampaignTable';
 import { CampaignFilter } from './CampaignFilter';
 import { AlertSection } from './AlertSection';
+import { DateFilterCalendar } from './DateFilterCalendar';
 import { fetchAllInsights } from '../services/geminiService';
-
-const getInitialDateRange = () => {
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(endDate.getDate() - 6);
-  return {
-    start: startDate.toISOString().split('T')[0],
-    end: endDate.toISOString().split('T')[0],
-  };
-};
 
 interface DashboardProps {
     view: string;
@@ -27,8 +18,21 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerformanceData = [], isLoading, error }) => {
-    const [dateRange, setDateRange] = useState(getInitialDateRange);
     const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
+    const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        return {
+            start: yesterdayStr,
+            end: yesterdayStr,
+        };
+    });
+    
+    // Refs para os inputs de data
+    const startDateInputRef = useRef<HTMLInputElement>(null);
+    const endDateInputRef = useRef<HTMLInputElement>(null);
     
     // Insights State (Specific to Dashboard view logic, kept here)
     const [allInsights, setAllInsights] = useState<string[]>([]);
@@ -80,23 +84,83 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     }, [view]);
 
     const filteredPerformanceDataByDate = useMemo(
-        () => [],
-        [dateRange]
+        () => {
+            if (!dailyPerformanceData || dailyPerformanceData.length === 0) return [];
+            
+            return dailyPerformanceData.filter((d: any) => {
+                const date = d.date;
+                return date >= dateRange.start && date <= dateRange.end;
+            });
+        },
+        [dailyPerformanceData, dateRange]
     );
 
     const filteredCampaignTableData = useMemo(() => {
-        if (selectedCampaignIds.length === 0) {
-            return campaigns;
+        // Se houver dados diários filtrados por data, usar apenas esses dados
+        if (filteredPerformanceDataByDate && Array.isArray(filteredPerformanceDataByDate) && filteredPerformanceDataByDate.length > 0) {
+            // Calcular totais agregados dos dados diários por período
+            const dailyTotals = {
+                spent: 0,
+                impressions: 0,
+                clicks: 0,
+                leads: 0
+            };
+            
+            filteredPerformanceDataByDate.forEach((d: any) => {
+                dailyTotals.spent += parseFloat(d.spend) || 0;
+                dailyTotals.impressions += parseFloat(d.impressions) || 0;
+                dailyTotals.clicks += parseFloat(d.clicks) || 0;
+                dailyTotals.leads += parseFloat(d.leads) || 0;
+            });
+            
+            // Calcular totais das campanhas filtradas
+            const campaignTotals = {
+                spent: 0,
+                impressions: 0,
+                clicks: 0,
+                leads: 0
+            };
+            
+            let filtered = campaigns;
+            if (selectedCampaignIds.length > 0) {
+                filtered = filtered.filter(campaign => selectedCampaignIds.includes(campaign.id));
+            }
+            
+            filtered.forEach((campaign: any) => {
+                campaignTotals.spent += parseFloat(campaign.spent) || 0;
+                campaignTotals.impressions += parseFloat(campaign.impressions) || 0;
+                campaignTotals.clicks += parseFloat(campaign.clicks) || 0;
+                campaignTotals.leads += parseFloat(campaign.leads) || 0;
+            });
+            
+            // Calcular ratios para cada métrica
+            const ratios = {
+                spent: campaignTotals.spent > 0 ? dailyTotals.spent / campaignTotals.spent : 0,
+                impressions: campaignTotals.impressions > 0 ? dailyTotals.impressions / campaignTotals.impressions : 0,
+                clicks: campaignTotals.clicks > 0 ? dailyTotals.clicks / campaignTotals.clicks : 0,
+                leads: campaignTotals.leads > 0 ? dailyTotals.leads / campaignTotals.leads : 0
+            };
+            
+            // Aplicar ratios a cada campanha
+            return filtered.map((campaign: any) => ({
+                ...campaign,
+                spent: (parseFloat(campaign.spent) || 0) * ratios.spent,
+                impressions: (parseFloat(campaign.impressions) || 0) * ratios.impressions,
+                clicks: (parseFloat(campaign.clicks) || 0) * ratios.clicks,
+                leads: (parseFloat(campaign.leads) || 0) * ratios.leads,
+            }));
         }
-        return campaigns.filter(campaign => selectedCampaignIds.includes(campaign.id));
-    }, [campaigns, selectedCampaignIds]);
+        
+        // Se não houver dados diários para o período, retornar vazio
+        return [];
+    }, [campaigns, selectedCampaignIds, filteredPerformanceDataByDate]);
 
     const aggregatedTotals = useMemo(() => {
         const result = { spent: 0, impressions: 0, clicks: 0, leads: 0 };
         
-        // Se houver dados diários, somar todos eles
-        if (dailyPerformanceData && Array.isArray(dailyPerformanceData) && dailyPerformanceData.length > 0) {
-            dailyPerformanceData.forEach((d: any) => {
+        // Se houver dados diários filtrados por data, somar eles
+        if (filteredPerformanceDataByDate && Array.isArray(filteredPerformanceDataByDate) && filteredPerformanceDataByDate.length > 0) {
+            filteredPerformanceDataByDate.forEach((d: any) => {
                 result.spent += parseFloat(d.spend) || 0;
                 result.impressions += parseFloat(d.impressions) || 0;
                 result.clicks += parseFloat(d.clicks) || 0;
@@ -116,28 +180,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
         }
         
         return result;
-    }, [dailyPerformanceData, filteredCampaignTableData]);
+    }, [filteredPerformanceDataByDate, filteredCampaignTableData]);
 
     const chartData = useMemo(() => {
-        // Para Meta Ads, Google Ads e Visão Principal, usar dados diários passados via props
-        if ((view === 'meta' || view === 'google' || view === 'principal') && dailyPerformanceData && dailyPerformanceData.length > 0) {
-            const source = dailyPerformanceData[0]?._source || 'unknown';
-            console.log(`[Dashboard] chartData for ${view} (source: ${source}):`, dailyPerformanceData.length, 'days');
-            return dailyPerformanceData;
+        if ((view === 'meta' || view === 'google' || view === 'principal') && filteredPerformanceDataByDate && filteredPerformanceDataByDate.length > 0) {
+            return filteredPerformanceDataByDate;
         }
-        
-        // Outras plataformas: retornar array vazio até que sejam integradas
         return [];
-    }, [view, dailyPerformanceData]);
+    }, [view, filteredPerformanceDataByDate]);
 
     const allCampaignsForFilter = useMemo(
-        () => campaigns.map(({ id, name }) => ({ id, name })), 
+        () => campaigns && campaigns.length > 0 ? campaigns.map(({ id, name }) => ({ id, name })) : [], 
         [campaigns]
     );
 
     const handleCampaignSelectionChange = (selectedIds: string[]) => {
         setSelectedCampaignIds(selectedIds);
     };
+
+    const handleDateRangeChange = (startDate: string, endDate: string) => {
+        setDateRange({ start: startDate, end: endDate });
+    };
+
+    const handleResetDateRange = () => {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        setDateRange({
+            start: yesterdayStr,
+            end: yesterdayStr,
+        });
+    };
+
+    // Get today's date for max date validation
+    const todayDate = new Date().toISOString().split('T')[0];
+    
+    // Get available dates for the calendar
+    const availableDatesForCalendar = useMemo(() => {
+        if (!dailyPerformanceData || dailyPerformanceData.length === 0) return [];
+        return dailyPerformanceData.map((d: any) => d.date);
+    }, [dailyPerformanceData]);
     
     const formatCurrency = (value: number) => 
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -145,19 +228,73 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     const formatNumber = (value: number) =>
         new Intl.NumberFormat('pt-BR').format(value);
 
+    // Debug log
+    console.log('[Dashboard] Render - campaigns:', campaigns?.length || 0, 'dateRange:', dateRange);
+
     return (
         <div className="space-y-6">
             {/* Top Bar Controls */}
-            <div className="flex flex-wrap justify-between items-center gap-4 border-b border-border-light dark:border-border-dark pb-4">
-                <div className="flex flex-wrap items-center gap-4">
-                    <CampaignFilter 
-                        campaigns={allCampaignsForFilter}
-                        selectedCampaignIds={selectedCampaignIds}
-                        onSelectionChange={handleCampaignSelectionChange}
-                        disabled={isLoading || !!error}
-                    />
+            <div className="bg-card-light dark:bg-card-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
+                <div className="flex flex-wrap items-center gap-6">
+                    {/* Filtro de Campanhas */}
+                    <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                            Campanhas:
+                        </label>
+                        <CampaignFilter 
+                            campaigns={allCampaignsForFilter}
+                            selectedCampaignIds={selectedCampaignIds}
+                            onSelectionChange={handleCampaignSelectionChange}
+                            disabled={isLoading || !!error}
+                        />
+                    </div>
+
+                    {/* Filtro de Data */}
+                    <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                            Período:
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <DateFilterCalendar
+                                availableDates={availableDatesForCalendar}
+                                selectedDate={dateRange.start}
+                                onDateChange={(date) => {
+                                    if (date) {
+                                        handleDateRangeChange(date, dateRange.end);
+                                    }
+                                }}
+                                label=""
+                            />
+                            <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">até</span>
+                            <DateFilterCalendar
+                                availableDates={availableDatesForCalendar}
+                                selectedDate={dateRange.end}
+                                onDateChange={(date) => {
+                                    if (date) {
+                                        handleDateRangeChange(dateRange.start, date);
+                                    }
+                                }}
+                                label=""
+                            />
+                            <button
+                                onClick={handleResetDateRange}
+                                disabled={isLoading || !!error}
+                                className="px-3 py-2 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors h-10"
+                                title="Limpar período"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Status Messages */}
+                    {allCampaignsForFilter.length === 0 && !isLoading && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma campanha encontrada</p>
+                    )}
+                    {isLoading && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Carregando...</p>
+                    )}
                 </div>
-                 {/* Add date picker here later if needed */}
             </div>
             
             {/* 1. Problem Finder / Distortion Area (HERO) */}
@@ -177,6 +314,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                         <MetricCard title="Leads" value={formatNumber(aggregatedTotals.leads)} />
                     </div>
                     
+                    {/* Filtro de Data para Dados Diários */}
+                    {console.log('[Dashboard] Renderizar filtro?', {
+                        view,
+                        hasDaily: !!dailyPerformanceData,
+                        dailyLength: dailyPerformanceData?.length || 0,
+                        shouldShow: (view === 'meta' || view === 'google' || view === 'principal') && dailyPerformanceData && dailyPerformanceData.length > 0
+                    })}
+                    
                     {/* Main Chart */}
                      <div className="bg-card-light dark:bg-card-dark rounded-lg shadow-md border border-border-light dark:border-border-dark" style={{ height: '400px' }}>
                         <CampaignPerformanceChart data={chartData} />
@@ -191,13 +336,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                         isLoading={isInsightLoading}
                         error={insightError}
                         insights={allInsights}
+                        dateRange={dateRange}
+                        dailyPerformanceData={filteredPerformanceDataByDate}
                     />
                  </div>
             </div>
 
             {/* 3. Detailed Data */}
-            <div>
-                <CampaignTable data={filteredCampaignTableData} isLoading={isLoading} error={error} />
+            <div className="space-y-4">
+                <CampaignTable data={filteredCampaignTableData} isLoading={isLoading} error={error} dateRange={dateRange} />
             </div>
         </div>
     );
