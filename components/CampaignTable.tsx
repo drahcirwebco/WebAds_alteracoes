@@ -92,8 +92,6 @@ const TableSkeleton: React.FC = () => (
 );
 
 export const CampaignTable: React.FC<CampaignTableProps> = ({ data, isLoading, error, dateRange }) => {
-  console.log('[CampaignTable] Recebeu dados:', data.length, 'isLoading:', isLoading, 'error:', error);
-  
   const formatDateDisplay = (dateStr: string): string => {
     const [year, month, day] = dateStr.split('-');
     return `${day}/${month}`;
@@ -120,7 +118,6 @@ export const CampaignTable: React.FC<CampaignTableProps> = ({ data, isLoading, e
     }
     
     if (!data || data.length === 0) {
-      console.log('[CampaignTable] Sem dados para exibir');
       return (
         <tr>
           <td colSpan={8} className="text-center py-10 px-6 text-text-secondary-light dark:text-text-secondary-dark">
@@ -131,34 +128,25 @@ export const CampaignTable: React.FC<CampaignTableProps> = ({ data, isLoading, e
     }
     
     const calculatedData = data.map(campaign => {
-        // Today's metrics
+        // Métricas calculadas do período atual
         const ctr_today = campaign.impressions > 0 ? (campaign.clicks / campaign.impressions) * 100 : 0;
         const cpc_today = campaign.clicks > 0 ? campaign.spent / campaign.clicks : 0;
 
-        // Yesterday's metrics
-        const spent_yesterday = campaign.spent - (campaign.spentDiff ?? 0);
-        const impressions_yesterday = campaign.impressions - (campaign.impressionsDiff ?? 0);
-        const clicks_yesterday = campaign.clicks - (campaign.clicksDiff ?? 0);
-
-        const ctr_yesterday = impressions_yesterday > 0 ? (clicks_yesterday / impressions_yesterday) * 100 : 0;
-        const cpc_yesterday = clicks_yesterday > 0 ? (spent_yesterday / clicks_yesterday) : 0;
-
-        // Diffs
-        const ctrDiff = ctr_today - ctr_yesterday;
-        const cpcDiff = cpc_today - cpc_yesterday;
-
-        // Percentages
-        const ctrPercent = ctr_yesterday !== 0 ? (ctrDiff / ctr_yesterday) * 100 : undefined;
-        const cpcPercent = cpc_yesterday !== 0 ? (cpcDiff / cpc_yesterday) * 100 : undefined;
+        // Quando há filtro de data ativo, as diferenças podem não ser relevantes
+        // Pois os dados já estão normalizados para o período
+        const spentDiff = campaign.spentDiff ?? 0;
+        const impressionsDiff = campaign.impressionsDiff ?? 0;
+        const clicksDiff = campaign.clicksDiff ?? 0;
+        const leadsDiff = campaign.leadsDiff ?? 0;
 
         return {
             ...campaign,
             ctr: ctr_today,
             cpc: cpc_today,
-            ctrDiff,
-            cpcDiff,
-            ctrPercent,
-            cpcPercent,
+            ctrDiff: 0,
+            cpcDiff: 0,
+            ctrPercent: undefined,
+            cpcPercent: undefined,
         };
     });
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Campaign, ChartDataPoint } from '../types';
 import { MetricCard } from './MetricCard';
 import { CampaignPerformanceChart } from './CampaignPerformanceChart';
@@ -29,10 +29,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
             end: yesterdayStr,
         };
     });
-    
-    // Refs para os inputs de data
-    const startDateInputRef = useRef<HTMLInputElement>(null);
-    const endDateInputRef = useRef<HTMLInputElement>(null);
     
     // Insights State (Specific to Dashboard view logic, kept here)
     const [allInsights, setAllInsights] = useState<string[]>([]);
@@ -96,9 +92,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
     );
 
     const filteredCampaignTableData = useMemo(() => {
-        // Se houver dados diários filtrados por data, usar apenas esses dados
+        // Filtrar campanhas selecionadas
+        let filtered = campaigns;
+        if (selectedCampaignIds.length > 0) {
+            filtered = filtered.filter(campaign => selectedCampaignIds.includes(campaign.id));
+        }
+        
+        // Se houver dados diários filtrados por data, usar ratios para escalar as campanhas
         if (filteredPerformanceDataByDate && Array.isArray(filteredPerformanceDataByDate) && filteredPerformanceDataByDate.length > 0) {
-            // Calcular totais agregados dos dados diários por período
+            // Calcular totais dos dados diários do período
             const dailyTotals = {
                 spent: 0,
                 impressions: 0,
@@ -121,11 +123,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                 leads: 0
             };
             
-            let filtered = campaigns;
-            if (selectedCampaignIds.length > 0) {
-                filtered = filtered.filter(campaign => selectedCampaignIds.includes(campaign.id));
-            }
-            
             filtered.forEach((campaign: any) => {
                 campaignTotals.spent += parseFloat(campaign.spent) || 0;
                 campaignTotals.impressions += parseFloat(campaign.impressions) || 0;
@@ -133,32 +130,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                 campaignTotals.leads += parseFloat(campaign.leads) || 0;
             });
             
-            // Calcular ratios para cada métrica
+            // Calcular ratios para escalar as campanhas ao período
             const ratios = {
-                spent: campaignTotals.spent > 0 ? dailyTotals.spent / campaignTotals.spent : 0,
-                impressions: campaignTotals.impressions > 0 ? dailyTotals.impressions / campaignTotals.impressions : 0,
-                clicks: campaignTotals.clicks > 0 ? dailyTotals.clicks / campaignTotals.clicks : 0,
-                leads: campaignTotals.leads > 0 ? dailyTotals.leads / campaignTotals.leads : 0
+                spent: campaignTotals.spent > 0 ? dailyTotals.spent / campaignTotals.spent : 1,
+                impressions: campaignTotals.impressions > 0 ? dailyTotals.impressions / campaignTotals.impressions : 1,
+                clicks: campaignTotals.clicks > 0 ? dailyTotals.clicks / campaignTotals.clicks : 1,
+                leads: campaignTotals.leads > 0 ? dailyTotals.leads / campaignTotals.leads : 1
             };
             
             // Aplicar ratios a cada campanha
-            return filtered.map((campaign: any) => ({
+            return filtered.map(campaign => ({
                 ...campaign,
-                spent: (parseFloat(campaign.spent) || 0) * ratios.spent,
-                impressions: (parseFloat(campaign.impressions) || 0) * ratios.impressions,
-                clicks: (parseFloat(campaign.clicks) || 0) * ratios.clicks,
-                leads: (parseFloat(campaign.leads) || 0) * ratios.leads,
+                spent: (parseFloat(String(campaign.spent)) || 0) * ratios.spent,
+                impressions: (parseFloat(String(campaign.impressions)) || 0) * ratios.impressions,
+                clicks: (parseFloat(String(campaign.clicks)) || 0) * ratios.clicks,
+                leads: (parseFloat(String(campaign.leads)) || 0) * ratios.leads,
             }));
         }
         
-        // Se não houver dados diários para o período, retornar vazio
-        return [];
+        // Se não houver dados diários, retornar campanhas como estão
+        return filtered;
     }, [campaigns, selectedCampaignIds, filteredPerformanceDataByDate]);
 
     const aggregatedTotals = useMemo(() => {
         const result = { spent: 0, impressions: 0, clicks: 0, leads: 0 };
         
-        // Se houver dados diários filtrados por data, somar eles
+        // Use dados diários se disponíveis (são a verdade para o período)
         if (filteredPerformanceDataByDate && Array.isArray(filteredPerformanceDataByDate) && filteredPerformanceDataByDate.length > 0) {
             filteredPerformanceDataByDate.forEach((d: any) => {
                 result.spent += parseFloat(d.spend) || 0;
@@ -169,7 +166,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
             return result;
         }
         
-        // Fallback: usar dados das campanhas
+        // Fallback para dados das campanhas
         if (filteredCampaignTableData && Array.isArray(filteredCampaignTableData) && filteredCampaignTableData.length > 0) {
             filteredCampaignTableData.forEach((campaign: any) => {
                 result.spent += parseFloat(campaign.spent) || 0;
@@ -213,9 +210,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
         });
     };
 
-    // Get today's date for max date validation
-    const todayDate = new Date().toISOString().split('T')[0];
-    
     // Get available dates for the calendar
     const availableDatesForCalendar = useMemo(() => {
         if (!dailyPerformanceData || dailyPerformanceData.length === 0) return [];
@@ -227,9 +221,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
   
     const formatNumber = (value: number) =>
         new Intl.NumberFormat('pt-BR').format(value);
-
-    // Debug log
-    console.log('[Dashboard] Render - campaigns:', campaigns?.length || 0, 'dateRange:', dateRange);
 
     return (
         <div className="space-y-6">
@@ -313,14 +304,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ view, campaigns, dailyPerf
                         <MetricCard title="Cliques" value={formatNumber(aggregatedTotals.clicks)} />
                         <MetricCard title="Leads" value={formatNumber(aggregatedTotals.leads)} />
                     </div>
-                    
-                    {/* Filtro de Data para Dados Diários */}
-                    {console.log('[Dashboard] Renderizar filtro?', {
-                        view,
-                        hasDaily: !!dailyPerformanceData,
-                        dailyLength: dailyPerformanceData?.length || 0,
-                        shouldShow: (view === 'meta' || view === 'google' || view === 'principal') && dailyPerformanceData && dailyPerformanceData.length > 0
-                    })}
                     
                     {/* Main Chart */}
                      <div className="bg-card-light dark:bg-card-dark rounded-lg shadow-md border border-border-light dark:border-border-dark" style={{ height: '400px' }}>
